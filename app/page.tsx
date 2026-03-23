@@ -1,65 +1,105 @@
-import Image from "next/image";
+export const dynamic = 'force-dynamic'
 
-export default function Home() {
+import Link from 'next/link'
+import { auth } from '@clerk/nextjs/server'
+import { redirect } from 'next/navigation'
+
+export default async function HomePage() {
+  const { userId } = await auth()
+  if (userId) redirect('/dashboard')
+
+  const goldBtn = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    background: 'var(--caio-gold)',
+    color: '#0F0F1A',
+    border: 'none',
+    borderRadius: 6,
+    padding: '12px 28px',
+    fontFamily: 'var(--font-jetbrains)',
+    fontSize: 13,
+    fontWeight: 700,
+    letterSpacing: '0.05em',
+    textDecoration: 'none',
+  } as const
+
+  const ghostBtn = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    background: 'transparent',
+    color: 'var(--caio-gold)',
+    border: '1px solid rgba(200,169,110,0.4)',
+    borderRadius: 6,
+    padding: '12px 28px',
+    fontFamily: 'var(--font-jetbrains)',
+    fontSize: 13,
+    fontWeight: 700,
+    letterSpacing: '0.05em',
+    textDecoration: 'none',
+  } as const
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <main
+      className="min-h-screen flex flex-col items-center justify-center px-6"
+      style={{ background: 'var(--caio-bg)', color: 'var(--caio-text)' }}
+    >
+      <div className="max-w-3xl mx-auto text-center" style={{ display: 'flex', flexDirection: 'column', gap: 40 }}>
+
+        {/* Brand */}
+        <div>
+          <div
+            className="font-mono text-xs mb-4"
+            style={{ color: 'var(--caio-text-muted)', letterSpacing: '0.2em', textTransform: 'uppercase' }}
+          >
+            Chief AI Intelligence Officer
+          </div>
+          <h1
+            className="font-heading"
+            style={{ fontSize: 'clamp(52px, 8vw, 88px)', color: 'var(--caio-text)', fontWeight: 700, lineHeight: 1.05, marginBottom: 24 }}
+          >
+            Your companies,<br />
+            <span style={{ color: 'var(--caio-gold)' }}>run by AI.</span>
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p
+            className="font-mono text-sm mx-auto"
+            style={{ color: 'var(--caio-text-secondary)', lineHeight: 1.8, maxWidth: 540 }}
+          >
+            Submit an idea. CAIO generates strategy, engineering, marketing,
+            outreach, and ops tasks daily — and executes them autonomously.
+            You approve before anything goes live.
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        {/* CTA */}
+        <div className="flex gap-4 justify-center flex-wrap">
+          <Link href="/sign-up" style={goldBtn}>
+            Get Started Free →
+          </Link>
+          <Link href="/sign-in" style={ghostBtn}>
+            Sign In
+          </Link>
         </div>
-      </main>
-    </div>
-  );
+
+        {/* Features */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-8">
+          {[
+            { icon: '◈', title: 'Autonomous execution', desc: 'CAIO generates and executes daily tasks across all channels.' },
+            { icon: '⚑', title: 'Human approval gate', desc: 'Review every action before it goes live. Full control.' },
+            { icon: '⬡', title: 'Portfolio view', desc: 'Manage multiple AI-powered companies from one dashboard.' },
+          ].map((f) => (
+            <div
+              key={f.title}
+              className="rounded-lg p-5 text-left"
+              style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}
+            >
+              <div className="font-mono text-lg mb-3" style={{ color: 'var(--caio-gold)' }}>{f.icon}</div>
+              <div className="font-heading text-base mb-2" style={{ color: 'var(--caio-text)', fontWeight: 700 }}>{f.title}</div>
+              <div className="font-mono text-xs" style={{ color: 'var(--caio-text-muted)', lineHeight: 1.6 }}>{f.desc}</div>
+            </div>
+          ))}
+        </div>
+
+      </div>
+    </main>
+  )
 }

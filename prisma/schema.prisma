@@ -1,0 +1,153 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id                String             @id @default(cuid())
+  clerkId           String             @unique
+  email             String             @unique
+  name              String?
+  createdAt         DateTime           @default(now())
+  companies         Company[]
+  socialCredentials SocialCredential[]
+}
+
+model Company {
+  id             String        @id @default(cuid())
+  userId         String
+  user           User          @relation(fields: [userId], references: [id])
+  name           String
+  slug           String        @unique
+  description    String
+  ideaPrompt     String
+  strategy       String?
+  status         CompanyStatus @default(INITIALIZING)
+  landingPageUrl String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  tasks          Task[]
+  activityLogs   ActivityLog[]
+  agentRuns      AgentRun[]
+
+  @@index([userId])
+}
+
+enum CompanyStatus {
+  INITIALIZING
+  ACTIVE
+  PAUSED
+  ARCHIVED
+}
+
+model Task {
+  id                String     @id @default(cuid())
+  companyId         String
+  company           Company    @relation(fields: [companyId], references: [id])
+  title             String
+  description       String
+  agentType         AgentType
+  status            TaskStatus @default(PENDING_REVIEW)
+  priority          Int        @default(0)
+  userNote          String?
+  editedTitle       String?
+  editedDescription String?
+  result            Json?
+  errorMessage      String?
+  scheduledFor      DateTime?
+  approvedAt        DateTime?
+  executedAt        DateTime?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  agentRun          AgentRun?
+
+  @@index([companyId, status])
+}
+
+enum TaskStatus {
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+  EXECUTING
+  COMPLETED
+  FAILED
+}
+
+enum AgentType {
+  LANDING_PAGE
+  LINKEDIN_POST
+  TWITTER_POST
+  REDDIT_POST
+  HACKERNEWS_POST
+  KAGGLE_POST
+  GROWTH_MARKETING
+  API_SCAFFOLD
+  COMPANY_INIT
+}
+
+model ActivityLog {
+  id        String     @id @default(cuid())
+  companyId String
+  company   Company    @relation(fields: [companyId], references: [id])
+  agentType AgentType?
+  taskId    String?
+  eventType String
+  summary   String
+  detail    Json?
+  createdAt DateTime   @default(now())
+
+  @@index([companyId, createdAt])
+}
+
+model AgentRun {
+  id            String    @id @default(cuid())
+  companyId     String
+  company       Company   @relation(fields: [companyId], references: [id])
+  taskId        String?   @unique
+  task          Task?     @relation(fields: [taskId], references: [id])
+  agentType     AgentType
+  inputPayload  Json
+  outputPayload Json?
+  toolCalls     Json?
+  tokensUsed    Int?
+  durationMs    Int?
+  status        RunStatus @default(RUNNING)
+  errorMessage  String?
+  startedAt     DateTime  @default(now())
+  completedAt   DateTime?
+
+  @@index([companyId])
+}
+
+enum RunStatus {
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+model SocialCredential {
+  id           String         @id @default(cuid())
+  userId       String
+  user         User           @relation(fields: [userId], references: [id])
+  platform     SocialPlatform
+  accessToken  String
+  refreshToken String?
+  expiresAt    DateTime?
+  metadata     Json?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  @@unique([userId, platform])
+}
+
+enum SocialPlatform {
+  LINKEDIN
+  TWITTER
+  REDDIT
+  HACKERNEWS
+  KAGGLE
+}
