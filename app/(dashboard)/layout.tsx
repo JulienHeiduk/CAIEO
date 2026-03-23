@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import Link from 'next/link'
+import { Settings } from 'lucide-react'
 
 export default function DashboardLayout({
   children,
@@ -45,6 +46,18 @@ export default function DashboardLayout({
             New Company
           </Link>
         </nav>
+
+        {/* Bottom: settings */}
+        <div className="p-4" style={{ borderTop: '1px solid var(--caio-border)' }}>
+          <Link
+            href="/settings"
+            className="flex items-center gap-3 px-3 py-2 rounded-md transition-colors font-mono text-xs"
+            style={{ color: 'var(--caio-text-muted)' }}
+          >
+            <Settings className="w-3 h-3" />
+            Integrations
+          </Link>
+        </div>
       </aside>
 
       {/* Main content */}

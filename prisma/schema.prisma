@@ -15,6 +15,17 @@ model User {
   createdAt         DateTime           @default(now())
   companies         Company[]
   socialCredentials SocialCredential[]
+  settings          UserSettings?
+}
+
+model UserSettings {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  user         User     @relation(fields: [userId], references: [id])
+  vercelToken  String?
+  vercelTeamId String?
+  githubToken  String?
+  updatedAt    DateTime @updatedAt
 }
 
 model Company {

@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { GithubRepoSection } from '@/components/companies/GithubRepoSection'
 import { DeleteCompanyButton } from '@/components/companies/DeleteCompanyButton'
+import { Markdown } from '@/components/ui/markdown'
 
 export default async function CompanyPage({
   params,
@@ -134,13 +135,7 @@ export default async function CompanyPage({
           <div className="font-mono text-[9px] mb-4" style={{ color: 'var(--caio-text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
             Growth Strategy
           </div>
-          <div className="space-y-3">
-            {company.strategy.split('\n').map((paragraph: string, i: number) => (
-              <p key={i} className="text-sm" style={{ color: 'var(--caio-text-secondary)', lineHeight: 1.7 }}>
-                {paragraph}
-              </p>
-            ))}
-          </div>
+          <Markdown content={company.strategy} />
         </div>
       )}
 

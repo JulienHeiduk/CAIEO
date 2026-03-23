@@ -6,6 +6,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
 import { Loader2 } from 'lucide-react'
+import { Markdown } from '@/components/ui/markdown'
 
 interface TaskCardProps {
   task: Task
@@ -50,14 +51,15 @@ const statusLabel: Record<string, string> = {
 export function TaskCard({ task, companyId, onUpdate }: TaskCardProps) {
   const [loading, setLoading] = useState<string | null>(null)
   const [editing, setEditing] = useState(false)
-  const [expanded, setExpanded] = useState(task.status === 'PENDING_REVIEW')
-  const [editTitle, setEditTitle] = useState(task.editedTitle ?? task.title)
-  const [editDescription, setEditDescription] = useState(task.editedDescription ?? task.description)
+  const [expanded, setExpanded] = useState(task.status === 'PENDING_REVIEW' || task.status === 'APPROVED')
+  const [editTitle, setEditTitle] = useState(task.editedTitle || task.title)
+  const [editDescription, setEditDescription] = useState(task.editedDescription || task.description)
   const [userNote, setUserNote] = useState(task.userNote ?? '')
 
-  const isPending  = task.status === 'PENDING_REVIEW'
-  const isApproved = task.status === 'APPROVED'
-  const isActed    = task.status === 'APPROVED' || task.status === 'REJECTED'
+  const isPending   = task.status === 'PENDING_REVIEW'
+  const isApproved  = task.status === 'APPROVED'
+  const isActed     = task.status === 'APPROVED' || task.status === 'REJECTED'
+  const isRevertable = ['COMPLETED', 'FAILED', 'REJECTED', 'APPROVED'].includes(task.status)
 
   const deptColor = agentDeptColor[task.agentType] ?? '#8899BB'
   const dept      = agentLabel[task.agentType] ?? task.agentType.toLowerCase().replace(/_/g, ' ')
@@ -89,8 +91,8 @@ export function TaskCard({ task, companyId, onUpdate }: TaskCardProps) {
 
   const handleApprove = () =>
     patchTask('approve', {
-      editedTitle:       editTitle !== task.title ? editTitle : '',
-      editedDescription: editDescription !== task.description ? editDescription : '',
+      editedTitle:       editTitle !== task.title ? editTitle : task.title,
+      editedDescription: editDescription !== task.description ? editDescription : task.description,
     })
 
   const handleExecute = async () => {
@@ -218,16 +220,14 @@ export function TaskCard({ task, companyId, onUpdate }: TaskCardProps) {
                 style={{ color: 'var(--caio-text)' }}
                 onClick={() => setExpanded(!expanded)}
               >
-                {task.editedTitle ?? task.title}
+                {task.editedTitle || task.title}
               </h3>
-              {expanded && (
-                <p
-                  className="font-mono text-[11px] mb-2 whitespace-pre-wrap"
-                  style={{ color: 'var(--caio-text-secondary)', lineHeight: 1.6 }}
-                >
-                  {task.editedDescription ?? task.description}
-                </p>
-              )}
+              <p
+                className="font-mono text-[11px] mb-2 whitespace-pre-wrap"
+                style={{ color: 'var(--caio-text-secondary)', lineHeight: 1.6 }}
+              >
+                {task.editedDescription || task.description}
+              </p>
             </>
           )}
 
@@ -249,16 +249,52 @@ export function TaskCard({ task, companyId, onUpdate }: TaskCardProps) {
           )}
 
           {/* Result */}
-          {task.status === 'COMPLETED' && task.result && expanded && (
-            <div
-              className="mt-3 p-3 rounded font-mono text-[10px]"
-              style={{ background: 'rgba(110,200,169,0.06)', border: '1px solid rgba(110,200,169,0.15)', color: '#6EC8A9' }}
-            >
-              <pre className="whitespace-pre-wrap overflow-auto max-h-28">
-                {JSON.stringify(task.result, null, 2)}
-              </pre>
-            </div>
-          )}
+          {task.status === 'COMPLETED' && task.result && expanded && (() => {
+            const res = task.result as { output?: string; deployedUrl?: string; pushedFiles?: string[]; html?: string }
+            return (
+              <div className="mt-3 flex flex-col gap-2">
+                {/* Deployed URL */}
+                {res.deployedUrl && (
+                  <div
+                    className="flex items-center gap-2 px-3 py-2 rounded"
+                    style={{ background: 'rgba(110,200,169,0.08)', border: '1px solid rgba(110,200,169,0.25)' }}
+                  >
+                    <span className="font-mono text-[10px]" style={{ color: 'var(--caio-text-muted)' }}>deployed →</span>
+                    <a
+                      href={res.deployedUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-mono text-[11px] underline truncate"
+                      style={{ color: '#6EC8A9' }}
+                    >
+                      {res.deployedUrl}
+                    </a>
+                  </div>
+                )}
+                {/* Pushed files */}
+                {res.pushedFiles && res.pushedFiles.length > 0 && (
+                  <div
+                    className="px-3 py-2 rounded"
+                    style={{ background: 'rgba(110,169,200,0.08)', border: '1px solid rgba(110,169,200,0.2)' }}
+                  >
+                    <span className="font-mono text-[10px]" style={{ color: 'var(--caio-text-muted)' }}>pushed to github →</span>
+                    {res.pushedFiles.map((f) => (
+                      <div key={f} className="font-mono text-[10px] mt-0.5" style={{ color: '#6E9EC8' }}>{f}</div>
+                    ))}
+                  </div>
+                )}
+                {/* Text output */}
+                {res.output && (
+                  <div
+                    className="p-3 rounded"
+                    style={{ background: 'rgba(110,200,169,0.04)', border: '1px solid rgba(110,200,169,0.12)' }}
+                  >
+                    <Markdown content={res.output} />
+                  </div>
+                )}
+              </div>
+            )
+          })()}
 
           {task.errorMessage && expanded && (
             <p className="font-mono text-[10px] mt-2" style={{ color: '#C86E6E' }}>
@@ -324,13 +360,32 @@ export function TaskCard({ task, companyId, onUpdate }: TaskCardProps) {
             </span>
           )}
 
-          {(task.status === 'EXECUTING' || task.status === 'COMPLETED') && (
+          {task.status === 'EXECUTING' && (
             <span
-              className="font-mono text-[10px] px-2 py-1 rounded"
+              className="font-mono text-[10px] px-2 py-1 rounded flex items-center gap-1"
               style={{ color: 'var(--caio-gold)', border: '1px solid rgba(200,169,110,0.25)' }}
             >
-              ⚡
+              <Loader2 className="w-3 h-3 animate-spin" /> running
             </span>
+          )}
+          {task.status === 'COMPLETED' && (
+            <span
+              className="font-mono text-[10px] px-2 py-1 rounded"
+              style={{ color: '#6EC8A9', border: '1px solid rgba(110,200,169,0.25)' }}
+            >
+              ✓ done
+            </span>
+          )}
+
+          {isRevertable && (
+            <button
+              onClick={() => patchTask('revert')}
+              disabled={!!loading}
+              style={btnStyle('#8899BB')}
+              title="Revert to pending review"
+            >
+              {loading === 'revert' ? <Loader2 className="w-3 h-3 animate-spin" /> : '↺'}
+            </button>
           )}
         </div>
       </div>

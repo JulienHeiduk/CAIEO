@@ -90,8 +90,14 @@ export async function POST(request: NextRequest) {
       userId: user.id,
     }
 
-    // Run in background (don't await — return company immediately)
-    new CompanyInitAgent(agentContext).run().catch(console.error)
+    // Run agent and wait (debug mode — will make this async once working)
+    console.log('[agent] starting company-init...')
+    try {
+      const result = await new CompanyInitAgent(agentContext).run()
+      console.log('[agent] company-init result:', JSON.stringify(result))
+    } catch (err) {
+      console.error('[agent] company-init threw:', err)
+    }
 
     return Response.json({ company }, { status: 201 })
   } catch (err) {

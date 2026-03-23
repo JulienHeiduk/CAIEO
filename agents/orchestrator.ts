@@ -1,8 +1,8 @@
-import { AgentType, RunStatus } from '@/lib/generated/prisma'
-import { anthropic, MODEL } from '@/lib/claude'
+import 'server-only'
+import { query } from '@anthropic-ai/claude-agent-sdk'
+import { AgentType } from '@/lib/generated/prisma'
 import { prisma } from '@/lib/prisma'
 import { AgentContext } from './types'
-import Anthropic from '@anthropic-ai/sdk'
 
 interface CreateTaskInput {
   title: string
@@ -10,6 +10,11 @@ interface CreateTaskInput {
   agentType: AgentType
   priority: number
 }
+
+const VALID_AGENT_TYPES = [
+  'LANDING_PAGE', 'LINKEDIN_POST', 'TWITTER_POST', 'REDDIT_POST',
+  'HACKERNEWS_POST', 'KAGGLE_POST', 'GROWTH_MARKETING', 'API_SCAFFOLD',
+]
 
 export class OrchestratorAgent {
   private context: AgentContext
@@ -24,11 +29,7 @@ export class OrchestratorAgent {
       .map((l) => `[${l.agentType ?? 'SYSTEM'}] ${l.summary}`)
       .join('\n')
 
-    const systemPrompt = `You are the Chief of Staff for ${this.context.company.name}.
-Your job is to propose up to 5 high-impact tasks for today using the create_task tool.
-Vary tasks between: marketing (social posts), product (landing page, content), and growth (SEO, outreach).
-Avoid repeating recent activity listed below.
-Each task must have a clear title, detailed description, appropriate agentType, and priority (1-5, 5=highest).
+    const prompt = `You are the Chief of Staff for ${this.context.company.name}.
 
 ## Company Info
 Name: ${this.context.company.name}
@@ -37,117 +38,72 @@ Idea: ${this.context.company.ideaPrompt}
 Strategy: ${this.context.company.strategy ?? 'Not yet defined'}
 
 ## Recent Activity (avoid repeating)
-${recentActivity || 'No recent activity — this is day one!'}`
+${recentActivity || 'No recent activity — this is day one!'}
 
-    const tools: Anthropic.Tool[] = [
-      {
-        name: 'create_task',
-        description: 'Create a task for the company. Call this up to 5 times.',
-        input_schema: {
-          type: 'object',
-          properties: {
-            title: { type: 'string', description: 'Short, action-oriented task title' },
-            description: {
-              type: 'string',
-              description: 'Detailed description of what the agent should do',
-            },
-            agentType: {
-              type: 'string',
-              enum: [
-                'LANDING_PAGE',
-                'LINKEDIN_POST',
-                'TWITTER_POST',
-                'REDDIT_POST',
-                'HACKERNEWS_POST',
-                'KAGGLE_POST',
-                'GROWTH_MARKETING',
-                'API_SCAFFOLD',
-              ],
-              description: 'Which agent will execute this task',
-            },
-            priority: {
-              type: 'number',
-              description: 'Priority 1-5 (5 = highest)',
-              minimum: 1,
-              maximum: 5,
-            },
-          },
-          required: ['title', 'description', 'agentType', 'priority'],
-        },
-      },
-    ]
+## Your Task
+Generate exactly 5 high-impact tasks for today. Vary them across marketing, product, and growth.
+Each task must have an appropriate agentType from this list: ${VALID_AGENT_TYPES.join(', ')}.
 
-    const messages: Anthropic.MessageParam[] = [
-      {
-        role: 'user',
-        content:
-          'Generate up to 5 high-impact tasks for today. Use the create_task tool for each task.',
-      },
-    ]
+Respond with ONLY a valid JSON array, no explanation, no markdown code blocks, just raw JSON:
+[
+  {"title": "...", "description": "...", "agentType": "LINKEDIN_POST", "priority": 5},
+  ...
+]`
 
-    const tasksCreated: CreateTaskInput[] = []
+    let fullText = ''
 
-    let continueLoop = true
-    while (continueLoop && tasksCreated.length < 5) {
-      const response = await anthropic.messages.create({
-        model: MODEL,
-        max_tokens: 2048,
-        system: systemPrompt,
-        tools,
-        messages,
-      })
-
-      if (response.stop_reason === 'tool_use') {
-        messages.push({ role: 'assistant', content: response.content })
-
-        const toolResults: Anthropic.ToolResultBlockParam[] = []
-        for (const block of response.content) {
-          if (block.type === 'tool_use' && block.name === 'create_task') {
-            const input = block.input as CreateTaskInput
-            tasksCreated.push(input)
-
-            toolResults.push({
-              type: 'tool_result',
-              tool_use_id: block.id,
-              content: JSON.stringify({ success: true, taskNumber: tasksCreated.length }),
-            })
-
-            if (tasksCreated.length >= 5) break
-          }
+    for await (const message of query({
+      prompt,
+      options: { permissionMode: 'bypassPermissions' },
+    })) {
+      if (message.type === 'assistant') {
+        for (const block of message.message?.content ?? []) {
+          if ('text' in block) fullText += block.text
         }
-
-        if (toolResults.length > 0) {
-          messages.push({ role: 'user', content: toolResults })
-        }
-      } else {
-        continueLoop = false
       }
     }
 
-    // Persist tasks to DB
-    if (tasksCreated.length > 0) {
-      await prisma.task.createMany({
-        data: tasksCreated.map((t) => ({
-          companyId: this.context.company.id,
-          title: t.title,
-          description: t.description,
-          agentType: t.agentType,
-          priority: t.priority,
-          scheduledFor: new Date(),
-        })),
-      })
-
-      await prisma.activityLog.create({
-        data: {
-          companyId: this.context.company.id,
-          agentType: AgentType.COMPANY_INIT,
-          eventType: 'TASKS_GENERATED',
-          summary: `Generated ${tasksCreated.length} tasks for review`,
-          detail: { tasks: tasksCreated.map((t) => t.title) },
-        },
-      })
+    // Extract JSON array from response
+    const jsonMatch = fullText.match(/\[[\s\S]*\]/)
+    if (!jsonMatch) {
+      console.error('[orchestrator] No JSON array found in response:', fullText.slice(0, 200))
+      return 0
     }
 
-    return tasksCreated.length
+    let tasks: CreateTaskInput[] = []
+    try {
+      const parsed = JSON.parse(jsonMatch[0])
+      tasks = parsed
+        .filter((t: CreateTaskInput) => t.title && t.description && VALID_AGENT_TYPES.includes(t.agentType))
+        .slice(0, 5)
+    } catch (err) {
+      console.error('[orchestrator] Failed to parse tasks JSON:', err)
+      return 0
+    }
+
+    if (tasks.length === 0) return 0
+
+    await prisma.task.createMany({
+      data: tasks.map((t) => ({
+        companyId: this.context.company.id,
+        title: t.title,
+        description: t.description,
+        agentType: t.agentType,
+        priority: t.priority ?? 3,
+        scheduledFor: new Date(),
+      })),
+    })
+
+    await prisma.activityLog.create({
+      data: {
+        companyId: this.context.company.id,
+        agentType: AgentType.COMPANY_INIT,
+        eventType: 'TASKS_GENERATED',
+        summary: `Generated ${tasks.length} tasks for review`,
+        detail: { tasks: tasks.map((t) => t.title) },
+      },
+    })
+
+    return tasks.length
   }
 }

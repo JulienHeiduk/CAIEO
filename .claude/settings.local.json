@@ -6,7 +6,14 @@
       "Bash(npx prisma:*)",
       "Bash(npm install:*)",
       "Bash(taskkill //F //IM node.exe)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(where claude:*)",
+      "Bash(grep -r export.*after /c/Users/julie/OneDrive/Bureau/CAIEO/caio/node_modules/next/dist/server/web/exports/index.js)",
+      "Bash(xargs grep:*)",
+      "Bash(npx tsc:*)",
+      "Bash(cmd /c \"taskkill /PID 25876 /F\" 2>&1)",
+      "Bash(cmd /c \"taskkill /PID 25876 /F 2>&1\")",
+      "Bash(powershell -Command \"Stop-Process -Id 25876 -Force -ErrorAction SilentlyContinue; Start-Sleep 2; Write-Host 'Process killed'\")"
     ]
   }
 }

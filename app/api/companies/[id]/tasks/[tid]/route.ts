@@ -36,9 +36,9 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
         data: {
           status: TaskStatus.APPROVED,
           approvedAt: new Date(),
-          editedTitle: editedTitle ?? null,
-          editedDescription: editedDescription ?? null,
-          userNote: userNote ?? null,
+          editedTitle: editedTitle || task.title,
+          editedDescription: editedDescription || task.description,
+          userNote: userNote || null,
         },
       })
       return Response.json({ task: updated })
@@ -67,7 +67,25 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
       return Response.json({ task: updated })
     }
 
-    return Response.json({ error: 'Invalid action. Use approve, reject, or edit.' }, { status: 400 })
+    if (action === 'revert') {
+      const revertable = ['COMPLETED', 'FAILED', 'REJECTED', 'APPROVED']
+      if (!revertable.includes(task.status)) {
+        return Response.json({ error: `Cannot revert a task with status ${task.status}` }, { status: 400 })
+      }
+      const updated = await prisma.task.update({
+        where: { id: tid },
+        data: {
+          status: TaskStatus.PENDING_REVIEW,
+          approvedAt: null,
+          executedAt: null,
+          result: JSON.parse('null'),
+          errorMessage: null,
+        },
+      })
+      return Response.json({ task: updated })
+    }
+
+    return Response.json({ error: 'Invalid action. Use approve, reject, edit, or revert.' }, { status: 400 })
   } catch (err) {
     if ((err as Error).message === 'Unauthorized') {
       return Response.json({ error: 'Unauthorized' }, { status: 401 })

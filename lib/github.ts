@@ -81,6 +81,67 @@ export async function fetchGithubContext(repoUrl: string): Promise<GithubContext
   }
 }
 
+/**
+ * Push or update a file in a GitHub repository.
+ * Requires a personal access token with `repo` scope (GITHUB_TOKEN env var).
+ */
+export async function pushFileToGithub(opts: {
+  repoUrl: string
+  filePath: string
+  content: string
+  message: string
+  branch?: string
+  token?: string | null
+}): Promise<{ url: string } | null> {
+  const token = opts.token ?? process.env.GITHUB_TOKEN
+  if (!token) {
+    console.log('[github] no token configured — skipping push')
+    return null
+  }
+
+  const parsed = parseGithubUrl(opts.repoUrl)
+  if (!parsed) return null
+  const { owner, repo } = parsed
+  const branch = opts.branch ?? 'main'
+
+  const headers = {
+    Authorization: `Bearer ${token}`,
+    Accept: 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28',
+    'Content-Type': 'application/json',
+    'User-Agent': 'CAIO',
+  }
+
+  const apiBase = `https://api.github.com/repos/${owner}/${repo}/contents/${opts.filePath}`
+
+  // Check if file already exists (need its SHA to update)
+  let existingSha: string | undefined
+  const checkRes = await fetch(`${apiBase}?ref=${branch}`, { headers })
+  if (checkRes.ok) {
+    const existing = await checkRes.json()
+    existingSha = existing.sha
+  }
+
+  const putRes = await fetch(apiBase, {
+    method: 'PUT',
+    headers,
+    body: JSON.stringify({
+      message: opts.message,
+      content: Buffer.from(opts.content, 'utf-8').toString('base64'),
+      branch,
+      ...(existingSha ? { sha: existingSha } : {}),
+    }),
+  })
+
+  if (!putRes.ok) {
+    console.error('[github] push failed', putRes.status, await putRes.text())
+    return null
+  }
+
+  const data = await putRes.json()
+  return { url: data.content?.html_url ?? `https://github.com/${owner}/${repo}/blob/${branch}/${opts.filePath}` }
+}
+
 export function formatGithubContextForPrompt(ctx: GithubContext): string {
   const lines: string[] = [
     `GitHub Repository: ${ctx.owner}/${ctx.repo}`,
