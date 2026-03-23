@@ -1,6 +1,5 @@
 import type { Metadata } from 'next'
 import { Playfair_Display, JetBrains_Mono, DM_Sans } from 'next/font/google'
-import { ClerkProvider } from '@clerk/nextjs'
 import { Toaster } from '@/components/ui/sonner'
 import './globals.css'
 
@@ -32,13 +31,11 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <ClerkProvider>
-      <html lang="en">
-        <body className={`${dmSans.variable} ${playfair.variable} ${jetbrainsMono.variable} antialiased`}>
-          {children}
-          <Toaster />
-        </body>
-      </html>
-    </ClerkProvider>
+    <html lang="en">
+      <body className={`${dmSans.variable} ${playfair.variable} ${jetbrainsMono.variable} antialiased`}>
+        {children}
+        <Toaster />
+      </body>
+    </html>
   )
 }

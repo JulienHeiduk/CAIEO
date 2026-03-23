@@ -2,6 +2,8 @@ import { requireUser } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
+import { GithubRepoSection } from '@/components/companies/GithubRepoSection'
+import { DeleteCompanyButton } from '@/components/companies/DeleteCompanyButton'
 
 export default async function CompanyPage({
   params,
@@ -87,13 +89,14 @@ export default async function CompanyPage({
               </a>
             )}
           </div>
-          <div className="flex gap-2 flex-shrink-0">
+          <div className="flex gap-2 flex-shrink-0 items-center">
             <Link href={`/companies/${id}/tasks`} style={linkBtn}>
               ⚑ Tasks ({company._count.tasks})
             </Link>
             <Link href={`/companies/${id}/logs`} style={linkBtn}>
               ◎ Logs
             </Link>
+            <DeleteCompanyButton companyId={id} companyName={company.name} />
           </div>
         </div>
       </div>
@@ -118,6 +121,9 @@ export default async function CompanyPage({
           </div>
         ))}
       </div>
+
+      {/* GitHub repo */}
+      <GithubRepoSection companyId={id} githubRepoUrl={company.githubRepoUrl ?? null} githubContext={company.githubContext ?? null} />
 
       {/* Strategy */}
       {company.strategy && (

@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { requireUser } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { CompanyStatus } from '@/lib/generated/prisma'
+import { fetchGithubContext, parseGithubUrl } from '@/lib/github'
 
 type RouteContext = { params: Promise<{ id: string }> }
 
@@ -46,12 +47,25 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
       return Response.json({ error: 'Company not found' }, { status: 404 })
     }
 
-    const updateData: { status?: CompanyStatus; strategy?: string } = {}
+    const updateData: { status?: CompanyStatus; strategy?: string; githubRepoUrl?: string | null; githubContext?: string | null } = {}
     if ('status' in body && Object.values(CompanyStatus).includes(body.status)) {
       updateData.status = body.status as CompanyStatus
     }
     if ('strategy' in body && typeof body.strategy === 'string') {
       updateData.strategy = body.strategy
+    }
+    if ('githubRepoUrl' in body) {
+      const url = body.githubRepoUrl as string | null
+      if (url && !parseGithubUrl(url)) {
+        return Response.json({ error: 'Invalid GitHub repository URL' }, { status: 400 })
+      }
+      updateData.githubRepoUrl = url
+      if (url) {
+        const ctx = await fetchGithubContext(url)
+        updateData.githubContext = ctx ? JSON.stringify(ctx) : null
+      } else {
+        updateData.githubContext = null
+      }
     }
 
     const updated = await prisma.company.update({
@@ -81,10 +95,11 @@ export async function DELETE(_req: NextRequest, { params }: RouteContext) {
       return Response.json({ error: 'Company not found' }, { status: 404 })
     }
 
-    await prisma.company.update({
-      where: { id },
-      data: { status: CompanyStatus.ARCHIVED },
-    })
+    // Delete in dependency order (no cascade set in schema)
+    await prisma.agentRun.deleteMany({ where: { companyId: id } })
+    await prisma.activityLog.deleteMany({ where: { companyId: id } })
+    await prisma.task.deleteMany({ where: { companyId: id } })
+    await prisma.company.delete({ where: { id } })
 
     return Response.json({ success: true })
   } catch (err) {

@@ -1,21 +1,12 @@
 export const dynamic = 'force-dynamic'
 
-import { requireUser } from '@/lib/auth'
-import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { UserButton } from '@clerk/nextjs'
 
-export default async function DashboardLayout({
+export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  try {
-    await requireUser()
-  } catch {
-    redirect('/sign-in')
-  }
-
   return (
     <div className="min-h-screen flex" style={{ background: 'var(--caio-bg)', color: 'var(--caio-text)' }}>
       {/* Sidebar */}
@@ -54,17 +45,6 @@ export default async function DashboardLayout({
             New Company
           </Link>
         </nav>
-
-        {/* User */}
-        <div
-          className="p-4 flex items-center gap-3"
-          style={{ borderTop: '1px solid var(--caio-border)' }}
-        >
-          <UserButton />
-          <span className="font-mono text-[10px]" style={{ color: 'var(--caio-text-muted)' }}>
-            Account
-          </span>
-        </div>
       </aside>
 
       {/* Main content */}

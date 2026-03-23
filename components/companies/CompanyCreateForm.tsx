@@ -9,6 +9,7 @@ import { Loader2 } from 'lucide-react'
 export function CompanyCreateForm() {
   const router = useRouter()
   const [ideaPrompt, setIdeaPrompt] = useState('')
+  const [githubRepoUrl, setGithubRepoUrl] = useState('')
   const [loading, setLoading] = useState(false)
 
   const ok = ideaPrompt.trim().length >= 10
@@ -22,10 +23,13 @@ export function CompanyCreateForm() {
 
     setLoading(true)
     try {
+      const body: Record<string, string> = { ideaPrompt: ideaPrompt.trim() }
+      if (githubRepoUrl.trim()) body.githubRepoUrl = githubRepoUrl.trim()
+
       const res = await fetch('/api/companies', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ideaPrompt: ideaPrompt.trim() }),
+        body: JSON.stringify(body),
       })
 
       const data = await res.json()
@@ -80,6 +84,39 @@ export function CompanyCreateForm() {
         >
           {ideaPrompt.length}/2000
         </div>
+      </div>
+
+      {/* GitHub repo (optional) */}
+      <div>
+        <label
+          htmlFor="github"
+          className="font-mono text-[10px] block mb-2"
+          style={{ color: 'var(--caio-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}
+        >
+          GitHub Repository <span style={{ color: 'var(--caio-text-dim)', textTransform: 'none', letterSpacing: 0 }}>(optional)</span>
+        </label>
+        <input
+          id="github"
+          type="url"
+          value={githubRepoUrl}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setGithubRepoUrl(e.target.value)}
+          placeholder="https://github.com/owner/repo"
+          disabled={loading}
+          style={{
+            background: 'rgba(255,255,255,0.05)',
+            border: '1px solid rgba(255,255,255,0.1)',
+            borderRadius: 6,
+            color: 'var(--caio-text)',
+            fontFamily: 'var(--font-jetbrains)',
+            fontSize: 12,
+            padding: '10px 12px',
+            width: '100%',
+            outline: 'none',
+          }}
+        />
+        <p className="font-mono text-[9px] mt-1" style={{ color: 'var(--caio-text-dim)' }}>
+          CAIO will read the README and file structure to use as context.
+        </p>
       </div>
 
       {/* What happens next */}
