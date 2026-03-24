@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Task } from '@/lib/generated/prisma'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
@@ -51,7 +51,9 @@ const statusLabel: Record<string, string> = {
 export function TaskCard({ task, companyId, onUpdate }: TaskCardProps) {
   const [loading, setLoading] = useState<string | null>(null)
   const [editing, setEditing] = useState(false)
-  const [expanded, setExpanded] = useState(task.status === 'PENDING_REVIEW' || task.status === 'APPROVED')
+  const [expanded, setExpanded] = useState(
+    task.status === 'PENDING_REVIEW' || task.status === 'APPROVED' || task.status === 'EXECUTING'
+  )
   const [editTitle, setEditTitle] = useState(task.editedTitle || task.title)
   const [editDescription, setEditDescription] = useState(task.editedDescription || task.description)
   const [userNote, setUserNote] = useState(task.userNote ?? '')
@@ -248,6 +250,14 @@ export function TaskCard({ task, companyId, onUpdate }: TaskCardProps) {
             />
           )}
 
+          {/* Execution log — shown while running and after completion/failure */}
+          {(['EXECUTING', 'COMPLETED', 'FAILED'] as const).includes(task.status as never) && expanded && (() => {
+            const res = task.result as { logs?: string[] } | null
+            const logs = res?.logs ?? []
+            if (logs.length === 0) return null
+            return <LogPanel logs={logs} live={task.status === 'EXECUTING'} />
+          })()}
+
           {/* Result */}
           {task.status === 'COMPLETED' && task.result && expanded && (() => {
             const res = task.result as { output?: string; deployedUrl?: string; pushedFiles?: string[]; html?: string }
@@ -388,6 +398,56 @@ export function TaskCard({ task, companyId, onUpdate }: TaskCardProps) {
             </button>
           )}
         </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Log panel ────────────────────────────────────────────────────────────────
+
+function LogPanel({ logs, live }: { logs: string[]; live: boolean }) {
+  const bottomRef = useRef<HTMLDivElement>(null)
+
+  // Auto-scroll to bottom when new log lines arrive
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [logs.length])
+
+  const lineColor = (line: string) => {
+    if (line.startsWith('✗') || line.startsWith('⚠'))  return '#C86E6E'
+    if (line.startsWith('✓') || line.startsWith('🚀')) return '#6EC8A9'
+    if (line.startsWith('→') || line.startsWith('  ↑')) return '#6E9EC8'
+    if (line.startsWith('✎'))                           return 'var(--caio-text-muted)'
+    return 'var(--caio-text-dim)'
+  }
+
+  return (
+    <div
+      className="mt-2 rounded overflow-hidden"
+      style={{ border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(0,0,0,0.25)' }}
+    >
+      {/* Header */}
+      <div
+        className="flex items-center gap-2 px-3 py-1.5"
+        style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(255,255,255,0.02)' }}
+      >
+        {live && <Loader2 className="w-2.5 h-2.5 animate-spin" style={{ color: 'var(--caio-gold)' }} />}
+        <span className="font-mono text-[9px]" style={{ color: 'var(--caio-text-muted)', letterSpacing: '0.08em' }}>
+          {live ? 'LIVE LOG' : 'EXECUTION LOG'}
+        </span>
+      </div>
+      {/* Lines */}
+      <div className="px-3 py-2 overflow-y-auto" style={{ maxHeight: 180 }}>
+        {logs.map((line, i) => (
+          <div
+            key={i}
+            className="font-mono text-[10px] leading-relaxed"
+            style={{ color: lineColor(line) }}
+          >
+            {line}
+          </div>
+        ))}
+        <div ref={bottomRef} />
       </div>
     </div>
   )

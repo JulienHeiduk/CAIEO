@@ -214,7 +214,7 @@ export function SettingsForm({ initial }: SettingsFormProps) {
           hint={
             configured.github
               ? `Currently configured (${initial.githubToken}). Enter a new token to replace it.`
-              : 'Create one at github.com/settings/tokens — needs repo scope'
+              : 'Create a classic token at github.com/settings/tokens/new — check the "repo" scope. Fine-grained tokens cannot create repositories.'
           }
           value={githubToken}
           onChange={setGithubToken}

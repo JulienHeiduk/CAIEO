@@ -16,6 +16,75 @@ model User {
   companies         Company[]
   socialCredentials SocialCredential[]
   settings          UserSettings?
+  gitHubBootstraps  GitHubBootstrap[]
+  repoSessions      RepoSession[]
+}
+
+model RepoSession {
+  id             String     @id @default(cuid())
+  userId         String
+  user           User       @relation(fields: [userId], references: [id])
+  repoPath       String
+  repoUrl        String?
+  repoName       String
+  isOwner        Boolean    @default(true)
+  contextSummary String?
+  contextStatus  String     @default("PENDING")
+  currentCycle   Int        @default(1)
+  status         String     @default("ACTIVE")
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  repoTasks      RepoTask[]
+
+  @@index([userId])
+}
+
+model RepoTask {
+  id                String      @id @default(cuid())
+  sessionId         String
+  session           RepoSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  cycle             Int
+  number            Int
+  title             String
+  description       String
+  priority          String      @default("medium")
+  estimate          String?
+  affectedFiles     String?
+  status            String      @default("PENDING")
+  executionLog      String?
+  diff              String?
+  commitHash        String?
+  userNote          String?
+  editedTitle       String?
+  editedDescription String?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  @@index([sessionId])
+}
+
+model GitHubBootstrap {
+  id               String   @id @default(cuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id])
+  idea             String
+  repoName         String
+  visibility       String   @default("private")
+  localPath        String
+  currentStep      Int      @default(1)
+  stepStatus       String   @default("GENERATING")
+  stepError        String?
+  description      String?
+  repoUrl          String?
+  repoFullName     String?
+  clonedPath       String?
+  readmeContent    String?
+  changelogContent String?
+  tasksContent     String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([userId])
 }
 
 model UserSettings {

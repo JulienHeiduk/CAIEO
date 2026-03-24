@@ -4,6 +4,103 @@ All notable changes to this project are documented here.
 
 ---
 
+## [0.7.0] — 2026-03-24
+
+### AI Task Engine on Existing Repo
+
+New module for AI-driven development on any existing local git repository.
+
+**Workflow (infinite cycle)**
+1. Point the engine at a local git repo path (must be a valid git repository)
+2. AI scans the repo: directory tree, SPEC.md, README.md, CHANGELOG.md, TASKS.md, package.json, source files
+3. AI generates a structured context summary (stack, state, spec, changelog, points of attention)
+4. AI generates exactly 5 actionable tasks for the current development cycle
+5. User reviews each task: approve ✓ / reject ✗ / edit ✏️
+6. Approved tasks execute via Claude AI agent (bypassPermissions) with live log streaming
+7. User validates result: commit ✓ or rollback ↺
+8. CHANGELOG.md in the target repo is updated on each commit (Keep a Changelog format)
+9. Push to GitHub when ready
+10. Generate next cycle — the loop is infinite
+
+**Architecture**
+- New Prisma models: `RepoSession` + `RepoTask` (with `onDelete: Cascade`)
+- Server-only `lib/repo-engine.ts` — scanRepo, generateCycleTasks, executeRepoTask, commitRepoTask, rollbackRepoTask, pushRepoSession
+- Git operations via `execSync` (validate repo, git add -A, git commit, git diff, git push, git checkout --)
+- Background fire-and-forget pattern: client polls every 2s during SCANNING/EXECUTING states
+- API routes: `POST /api/repo-engine`, `GET /api/repo-engine/[id]`, and sub-routes for scan, generate, task CRUD, execute, commit, rollback, push
+- Client: `RepoEngineView` with context panel (collapsible, markdown rendered) + task cards with diff preview
+
+**UI**
+- New routes: `/repo-engine` (session list + new session form) and `/repo-engine/[id]` (full session view)
+- Task cards: border-left color by priority (high=red, medium=gold, low=blue), live log panel, git diff preview
+- Sidebar nav: `⊕ Task Engine` link added
+- Dashboard: Task Engine option added to header buttons and card grid
+
+---
+
+## [0.6.0] — 2026-03-24
+
+### GitHub Project Bootstrapper
+
+New 6-step wizard that creates and initializes a complete GitHub repository from a plain-language idea.
+
+**Workflow**
+1. AI generates repository name and description → user reviews and edits
+2. Creates GitHub repo via API → user confirms clone destination
+3. Clones repo locally → AI generates README.md → user reviews/edits
+4. User approves README → CHANGELOG.md generated from template → user reviews/edits
+5. User approves CHANGELOG → AI generates TASKS.md (exactly 5 tasks) → user reviews/edits
+6. User approves TASKS.md → git commit + push → done
+
+**Architecture**
+- State machine: `currentStep` (1–6) + `stepStatus` (GENERATING | REVIEW | EXECUTING | DONE | ERROR | CANCELLED)
+- Background async pattern: approve sets EXECUTING, background function runs, client polls every 2s
+- New `GitHubBootstrap` Prisma model with full session state
+- Server-only `lib/github-bootstrap.ts` — AI generation, git operations, GitHub API calls
+- API: `POST /api/github-bootstrap`, `GET /api/github-bootstrap/[id]`, `POST /api/github-bootstrap/[id]/execute`
+- Client: `BootstrapWizard` component with step progress bar, editable textareas, preview toggle
+
+**UI**
+- New route: `/github/bootstrap`
+- Sidebar nav link: ⌥ Bootstrap Repo
+- Dashboard header secondary button + empty state button + grid card
+- Step progress bar with gold current step, green completed, red error
+- All AI-generated content (README, TASKS.md) editable before approval, with markdown preview toggle
+- Error display with retry option
+
+**Files added**
+- `lib/github-bootstrap.ts`
+- `app/api/github-bootstrap/route.ts`
+- `app/api/github-bootstrap/[id]/route.ts`
+- `app/api/github-bootstrap/[id]/execute/route.ts`
+- `app/(dashboard)/github/bootstrap/page.tsx`
+- `components/github-bootstrap/BootstrapWizard.tsx`
+
+---
+
+## [0.5.2] — 2026-03-23
+
+### Live execution log in task cards
+
+Tasks now show a real-time log panel while the AI agent is running, and keep it visible after completion or failure.
+
+**What the log shows**
+- `Agent started — {type}` on launch
+- `→ Write / Edit / Bash / Read …` for every tool call the agent makes
+- `✎ Generating… (N chars)` progress updates every ~400 chars of text output
+- `✓ Agent finished (Xs)` when the model completes
+- `Deploying to Vercel…` / `🚀 Deployed → https://…` for landing page tasks
+- `↑ path/to/file` for each file pushed to GitHub
+- `✗ Failed: …` on error
+
+**Behaviour**
+- Log panel auto-scrolls to the bottom as new lines arrive
+- Shows "LIVE LOG" with a spinner while executing, "EXECUTION LOG" when done
+- Card auto-expands when a task starts executing so the log is immediately visible
+- Logs are persisted in `task.result.logs` — survive page refresh
+
+---
+
 ## [0.5.1] — 2026-03-23
 
 ### Revert task to pending review

@@ -202,6 +202,22 @@ type CompanyInput = {
   githubContext: string | null
 }
 
+/** Summarise a tool_use block into a readable one-liner */
+function describeToolCall(block: { name: string; input: Record<string, unknown> }): string {
+  const i = block.input
+  switch (block.name) {
+    case 'Write':      return `Write  ${i.file_path ?? ''}`
+    case 'Edit':       return `Edit   ${i.file_path ?? ''}`
+    case 'Read':       return `Read   ${i.file_path ?? ''}`
+    case 'Bash':       return `$  ${String(i.command ?? '').slice(0, 80)}`
+    case 'Glob':       return `Glob   ${i.pattern ?? ''}`
+    case 'Grep':       return `Grep   ${i.pattern ?? ''}`
+    case 'WebFetch':   return `Fetch  ${String(i.url ?? '').slice(0, 60)}`
+    case 'WebSearch':  return `Search ${i.query ?? ''}`
+    default:           return `${block.name}`
+  }
+}
+
 async function runTask({ company, task }: { company: CompanyInput; task: TaskInput }) {
   const startedAt = Date.now()
   const title = task.editedTitle ?? task.title
@@ -219,44 +235,76 @@ async function runTask({ company, task }: { company: CompanyInput; task: TaskInp
     userNote,
   })
 
+  // ── Progressive log tracking ──────────────────────────────────────────────
+  const logs: string[] = []
   let output = ''
+  let lastOutputFlush = 0 // chars flushed last time
+
+  const flush = async (extraFields?: Record<string, unknown>) => {
+    await prisma.task.update({
+      where: { id: task.id },
+      data: {
+        result: JSON.parse(JSON.stringify({ logs, output, ...extraFields })),
+      },
+    })
+  }
+
+  const log = async (line: string, forceFlush = true) => {
+    logs.push(line)
+    if (forceFlush) await flush()
+  }
+
   try {
+    await log(`Agent started — ${task.agentType}`)
+
     for await (const message of query({
       prompt,
       options: { permissionMode: 'bypassPermissions' },
     })) {
       if (message.type === 'assistant') {
         for (const block of message.message?.content ?? []) {
-          if ('text' in block) output += block.text
+          if (block.type === 'tool_use') {
+            await log(`→ ${describeToolCall(block as { name: string; input: Record<string, unknown> })}`)
+          }
+          if ('text' in block && block.text) {
+            output += block.text
+            // Flush a progress update every ~400 chars of new output
+            if (output.length - lastOutputFlush > 400) {
+              lastOutputFlush = output.length
+              await log(`✎ Generating… (${output.length} chars)`)
+            }
+          }
         }
       }
     }
 
+    await log(`✓ Agent finished (${((Date.now() - startedAt) / 1000).toFixed(1)}s)`)
+
     // ── Post-process by task type ──
-    const result: Record<string, unknown> = { output }
+    const result: Record<string, unknown> = { logs, output }
 
     if (task.agentType === 'LANDING_PAGE') {
       const html = extractHtml(output)
       if (html) {
         result.html = html
+        await log('Deploying to Vercel…', false)
         const url = await deployLandingPage(html, company.slug, tokens.vercelToken)
         if (url) {
           result.deployedUrl = url
-          // Persist to company record
-          await prisma.company.update({
-            where: { id: company.id },
-            data: { landingPageUrl: url },
-          })
-          console.log(`[vercel] landing page deployed: ${url}`)
+          await prisma.company.update({ where: { id: company.id }, data: { landingPageUrl: url } })
+          await log(`🚀 Deployed → ${url}`, false)
+        } else {
+          await log('⚠ Vercel token not configured — skipped deployment', false)
         }
       } else {
-        console.warn('[execute] LANDING_PAGE: could not extract HTML from output')
+        await log('⚠ Could not extract HTML from output', false)
       }
     }
 
     if (task.agentType === 'API_SCAFFOLD' && company.githubRepoUrl) {
       const files = extractCodeFiles(output)
       if (files.length > 0) {
+        await log(`Pushing ${files.length} file(s) to GitHub…`, false)
         for (const file of files) {
           const pushed = await pushFileToGithub({
             repoUrl: company.githubRepoUrl,
@@ -265,7 +313,7 @@ async function runTask({ company, task }: { company: CompanyInput; task: TaskInp
             message: `feat: ${title} (CAIO task ${task.id.slice(0, 8)})`,
             token: tokens.githubToken,
           })
-          if (pushed) console.log(`[github] pushed ${file.path}`)
+          if (pushed) await log(`  ↑ ${file.path}`, false)
         }
         result.pushedFiles = files.map((f) => f.path)
       }
@@ -297,9 +345,14 @@ async function runTask({ company, task }: { company: CompanyInput; task: TaskInp
     })
   } catch (err) {
     const errorMessage = (err as Error).message
+    logs.push(`✗ Failed: ${errorMessage}`)
     await prisma.task.update({
       where: { id: task.id },
-      data: { status: TaskStatus.FAILED, errorMessage },
+      data: {
+        status: TaskStatus.FAILED,
+        errorMessage,
+        result: JSON.parse(JSON.stringify({ logs, output })),
+      },
     })
     await prisma.activityLog.create({
       data: {
