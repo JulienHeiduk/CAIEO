@@ -6,7 +6,12 @@ import { Loader2 } from 'lucide-react'
 import { Markdown } from '@/components/ui/markdown'
 import type { RepoSession, RepoTask } from '@/lib/generated/prisma'
 
-type SessionWithTasks = RepoSession & { repoTasks: RepoTask[] }
+type SessionWithTasks = RepoSession & {
+  repoTasks: RepoTask[]
+  reviewContent?: string | null
+  reviewStatus?: string
+  reviewCycle?: number | null
+}
 
 interface RepoEngineViewProps {
   session: SessionWithTasks
@@ -51,11 +56,13 @@ const btnStyle = (color: string): React.CSSProperties => ({
 // ─── Log Panel ────────────────────────────────────────────────────────────────
 
 function LogPanel({ logs, live }: { logs: string[]; live: boolean }) {
-  const bottomRef = useRef<HTMLDivElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [logs.length])
+    if (!live) return
+    const el = containerRef.current
+    if (el) el.scrollTop = el.scrollHeight
+  }, [logs.length, live])
 
   const lineColor = (line: string) => {
     if (line.startsWith('✗') || line.startsWith('⚠')) return '#C86E6E'
@@ -79,13 +86,12 @@ function LogPanel({ logs, live }: { logs: string[]; live: boolean }) {
           {live ? 'LIVE LOG' : 'EXECUTION LOG'}
         </span>
       </div>
-      <div className="px-3 py-2 overflow-y-auto" style={{ maxHeight: 200 }}>
+      <div ref={containerRef} className="px-3 py-2 overflow-y-auto" style={{ maxHeight: 200 }}>
         {logs.map((line, i) => (
           <div key={i} className="font-mono text-[10px] leading-relaxed" style={{ color: lineColor(line) }}>
             {line}
           </div>
         ))}
-        <div ref={bottomRef} />
       </div>
     </div>
   )
@@ -163,7 +169,16 @@ function RepoTaskCard({
       const data = await res.json() as { task?: RepoTask; error?: string }
       if (!res.ok) { toast.error(data.error ?? 'Commit failed'); return }
       if (data.task) onUpdate(data.task)
-      toast.success('Task committed!')
+
+      // Auto-push after commit
+      const pushRes = await fetch(`/api/repo-engine/${sessionId}/push`, { method: 'POST' })
+      const pushData = await pushRes.json() as { ok: boolean; error?: string }
+      if (pushData.ok) {
+        toast.success('Task committed and pushed!')
+      } else {
+        toast.success('Task committed')
+        toast.error(`Push failed: ${pushData.error ?? 'unknown error'}`)
+      }
     } catch {
       toast.error('Network error')
     } finally {
@@ -445,13 +460,18 @@ function RepoTaskCard({
 export function RepoEngineView({ session: initialSession }: RepoEngineViewProps) {
   const [session, setSession] = useState(initialSession)
   const [tasks, setTasks] = useState<RepoTask[]>(initialSession.repoTasks)
-  const [contextExpanded, setContextExpanded] = useState(true)
+  const [contextExpanded, setContextExpanded] = useState(false)
   const [loadingAction, setLoadingAction] = useState<string | null>(null)
-  const [pushResult, setPushResult] = useState<{ ok: boolean; error?: string } | null>(null)
+  const [reviewExpanded, setReviewExpanded] = useState(false)
+  const [generateContext, setGenerateContext] = useState('')
+  const [generateFiles, setGenerateFiles] = useState('')
+  const [generateCount, setGenerateCount] = useState(5)
+  const [showGenerateContext, setShowGenerateContext] = useState(false)
 
   const isScanning = session.contextStatus === 'SCANNING' || session.contextStatus === 'PENDING'
   const anyExecuting = tasks.some((t) => t.status === 'EXECUTING')
-  const shouldPoll = isScanning || anyExecuting
+  const isReviewing = session.reviewStatus === 'RUNNING'
+  const shouldPoll = isScanning || anyExecuting || isReviewing
 
   const poll = useCallback(async () => {
     try {
@@ -490,10 +510,18 @@ export function RepoEngineView({ session: initialSession }: RepoEngineViewProps)
   const handleGenerate = async () => {
     setLoadingAction('generate')
     try {
-      const res = await fetch(`/api/repo-engine/${session.id}/generate`, { method: 'POST' })
+      const contextFiles = generateFiles.split(',').map((f) => f.trim()).filter(Boolean)
+      const res = await fetch(`/api/repo-engine/${session.id}/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userContext: generateContext, contextFiles, taskCount: generateCount }),
+      })
       const data = await res.json() as { ok?: boolean; currentCycle?: number; error?: string }
       if (!res.ok) { toast.error(data.error ?? 'Failed to generate tasks'); return }
       setSession((s) => ({ ...s, contextStatus: 'SCANNING', currentCycle: data.currentCycle ?? s.currentCycle }))
+      setGenerateContext('')
+      setGenerateFiles('')
+      setShowGenerateContext(false)
       toast.success('Generating new cycle of tasks...')
     } catch {
       toast.error('Network error')
@@ -502,15 +530,14 @@ export function RepoEngineView({ session: initialSession }: RepoEngineViewProps)
     }
   }
 
-  const handlePush = async () => {
-    setLoadingAction('push')
-    setPushResult(null)
+  const handleReview = async () => {
+    setLoadingAction('review')
     try {
-      const res = await fetch(`/api/repo-engine/${session.id}/push`, { method: 'POST' })
-      const data = await res.json() as { ok: boolean; error?: string }
-      setPushResult(data)
-      if (data.ok) toast.success('Pushed to GitHub!')
-      else toast.error(data.error ?? 'Push failed')
+      const res = await fetch(`/api/repo-engine/${session.id}/review`, { method: 'POST' })
+      if (!res.ok) { toast.error('Failed to start review'); return }
+      setSession((s) => ({ ...s, reviewStatus: 'RUNNING' }))
+      setReviewExpanded(true)
+      toast.success('Code review running with Opus 4.6...')
     } catch {
       toast.error('Network error')
     } finally {
@@ -561,29 +588,116 @@ export function RepoEngineView({ session: initialSession }: RepoEngineViewProps)
             </span>
           </div>
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <button
-            onClick={handleGenerate}
-            disabled={!!loadingAction || isScanning}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6,
-              background: isScanning || loadingAction ? 'rgba(200,169,110,0.1)' : 'var(--caio-gold)',
-              color: isScanning || loadingAction ? 'var(--caio-gold)' : '#0F0F1A',
-              border: isScanning || loadingAction ? '1px solid rgba(200,169,110,0.3)' : 'none',
-              borderRadius: 5,
-              padding: '7px 14px',
-              fontFamily: 'var(--font-jetbrains)',
-              fontSize: 11,
-              fontWeight: 700,
-              letterSpacing: '0.04em',
-              cursor: isScanning || loadingAction ? 'not-allowed' : 'pointer',
-            }}
-          >
-            {loadingAction === 'generate' ? <Loader2 className="w-3 h-3 animate-spin" /> : '⟳'}
-            Generate Next Cycle
-          </button>
+        <div className="flex flex-col items-end gap-2 flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowGenerateContext((v) => !v)}
+              disabled={!!loadingAction || isScanning}
+              title="Add context for next cycle"
+              style={{
+                ...btnStyle('var(--caio-text-muted)'),
+                fontSize: 10,
+                opacity: isScanning || loadingAction ? 0.5 : 1,
+              }}
+            >
+              {showGenerateContext ? '▲ context' : '▼ context'}
+            </button>
+            <button
+              onClick={handleGenerate}
+              disabled={!!loadingAction || isScanning}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                background: isScanning || loadingAction ? 'rgba(200,169,110,0.1)' : 'var(--caio-gold)',
+                color: isScanning || loadingAction ? 'var(--caio-gold)' : '#0F0F1A',
+                border: isScanning || loadingAction ? '1px solid rgba(200,169,110,0.3)' : 'none',
+                borderRadius: 5,
+                padding: '7px 14px',
+                fontFamily: 'var(--font-jetbrains)',
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: '0.04em',
+                cursor: isScanning || loadingAction ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {loadingAction === 'generate' ? <Loader2 className="w-3 h-3 animate-spin" /> : '⟳'}
+              Generate Next Cycle
+            </button>
+          </div>
+          {showGenerateContext && (
+            <div className="flex flex-col gap-2" style={{ width: 320 }}>
+              <textarea
+                value={generateContext}
+                onChange={(e) => setGenerateContext(e.target.value)}
+                placeholder="Optional: focus area, constraints, or instructions for this cycle…"
+                rows={3}
+                style={{
+                  width: '100%',
+                  background: 'rgba(255,255,255,0.04)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: 5,
+                  color: 'var(--caio-text)',
+                  fontFamily: 'var(--font-jetbrains)',
+                  fontSize: 11,
+                  padding: '8px 10px',
+                  outline: 'none',
+                  resize: 'vertical',
+                }}
+              />
+              <div className="flex gap-2">
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontFamily: 'var(--font-jetbrains)', fontSize: 9, color: 'var(--caio-text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 4 }}>
+                    Context files (comma-separated)
+                  </label>
+                  <input
+                    type="text"
+                    value={generateFiles}
+                    onChange={(e) => setGenerateFiles(e.target.value)}
+                    placeholder="e.g. REVIEW.md, SPEC.md"
+                    style={{
+                      width: '100%',
+                      background: 'rgba(255,255,255,0.04)',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      borderRadius: 5,
+                      color: 'var(--caio-text)',
+                      fontFamily: 'var(--font-jetbrains)',
+                      fontSize: 11,
+                      padding: '7px 10px',
+                      outline: 'none',
+                    }}
+                  />
+                </div>
+                <div style={{ width: 64 }}>
+                  <label style={{ fontFamily: 'var(--font-jetbrains)', fontSize: 9, color: 'var(--caio-text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 4 }}>
+                    Tasks
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={20}
+                    value={generateCount}
+                    onChange={(e) => {
+                      const n = parseInt(e.target.value, 10)
+                      if (!isNaN(n)) setGenerateCount(Math.min(20, Math.max(1, n)))
+                    }}
+                    style={{
+                      width: '100%',
+                      background: 'rgba(255,255,255,0.04)',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      borderRadius: 5,
+                      color: 'var(--caio-text)',
+                      fontFamily: 'var(--font-jetbrains)',
+                      fontSize: 11,
+                      padding: '7px 10px',
+                      outline: 'none',
+                      textAlign: 'center',
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -679,7 +793,7 @@ export function RepoEngineView({ session: initialSession }: RepoEngineViewProps)
 
         {/* Previous cycles */}
         {(() => {
-          const olderTasks = tasks.filter((t) => t.cycle < session.currentCycle)
+          const olderTasks = tasks.filter((t) => t.cycle < session.currentCycle && !!t.commitHash)
           if (olderTasks.length === 0) return null
           return (
             <details className="mt-4">
@@ -704,45 +818,112 @@ export function RepoEngineView({ session: initialSession }: RepoEngineViewProps)
         })()}
       </div>
 
+      {/* Code Review panel */}
+      <div
+        className="rounded-md"
+        style={{ border: '1px solid rgba(147,112,219,0.25)', background: 'rgba(147,112,219,0.04)' }}
+      >
+        <div
+          className="flex items-center justify-between px-4 py-3 cursor-pointer"
+          style={{ borderBottom: reviewExpanded ? '1px solid rgba(147,112,219,0.15)' : 'none' }}
+          onClick={() => setReviewExpanded((v) => !v)}
+        >
+          <div className="flex items-center gap-2">
+            <span style={{ color: '#9370DB', fontSize: 13 }}>◈</span>
+            <span className="font-mono text-[10px]" style={{ color: '#9370DB', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+              Cycle Review
+            </span>
+            <span className="font-mono text-[9px]" style={{ color: 'var(--caio-text-dim)' }}>
+              — Opus 4.6
+            </span>
+            {session.reviewCycle != null && session.reviewStatus === 'DONE' && (
+              <span className="font-mono text-[9px]" style={{ color: 'var(--caio-text-dim)' }}>
+                — last run on cycle {session.reviewCycle}
+              </span>
+            )}
+            {isReviewing && (
+              <span className="flex items-center gap-1 font-mono text-[9px]" style={{ color: '#9370DB' }}>
+                <Loader2 className="w-2.5 h-2.5 animate-spin" /> analyzing...
+              </span>
+            )}
+            {session.reviewStatus === 'ERROR' && (
+              <span className="font-mono text-[9px]" style={{ color: '#C86E6E' }}>✗ error</span>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={(e) => { e.stopPropagation(); handleReview() }}
+              disabled={!!loadingAction || isReviewing || isScanning}
+              style={{
+                ...btnStyle('#9370DB'),
+                fontWeight: 600,
+                opacity: (isReviewing || isScanning) ? 0.5 : 1,
+                cursor: (isReviewing || isScanning) ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {isReviewing || loadingAction === 'review'
+                ? <><Loader2 className="w-3 h-3 animate-spin" /> Running...</>
+                : session.reviewStatus === 'DONE' ? '↺ Re-run Review' : '▶ Run Review'}
+            </button>
+            <span className="font-mono text-[10px]" style={{ color: 'var(--caio-text-dim)' }}>
+              {reviewExpanded ? '▲' : '▼'}
+            </span>
+          </div>
+        </div>
+
+        {reviewExpanded && (
+          <>
+            {(isReviewing || session.reviewStatus === 'ERROR' || session.reviewStatus === 'DONE') && session.reviewLog && (
+              <div
+                className="mx-4 mt-3 mb-3 rounded overflow-hidden"
+                style={{ border: '1px solid rgba(147,112,219,0.15)', background: 'rgba(0,0,0,0.2)' }}
+              >
+                <div
+                  className="flex items-center gap-2 px-3 py-1.5"
+                  style={{ borderBottom: '1px solid rgba(147,112,219,0.1)', background: 'rgba(147,112,219,0.05)' }}
+                >
+                  {isReviewing && <Loader2 className="w-2.5 h-2.5 animate-spin" style={{ color: '#9370DB' }} />}
+                  <span className="font-mono text-[9px]" style={{ color: '#9370DB', letterSpacing: '0.08em' }}>
+                    {isReviewing ? 'LIVE LOG' : 'REVIEW LOG'}
+                  </span>
+                </div>
+                <div className="px-3 py-2 overflow-y-auto" style={{ maxHeight: 160 }}>
+                  {session.reviewLog.split('\n').filter(Boolean).map((line, i) => {
+                    const color = line.startsWith('✗') ? '#C86E6E'
+                      : line.startsWith('✓') ? '#6EC8A9'
+                      : line.startsWith('→') ? '#6E9EC8'
+                      : line.startsWith('✎') ? 'var(--caio-text-muted)'
+                      : '#9370DB'
+                    return (
+                      <div key={i} className="font-mono text-[10px] leading-relaxed" style={{ color }}>
+                        {line}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {session.reviewStatus === 'DONE' && session.reviewContent && (
+              <div className="px-4 pb-4">
+                <div className="prose-sm">
+                  <Markdown content={session.reviewContent} />
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
       {/* Actions bar */}
       {committedTasks.length > 0 && (
         <div
           className="flex items-center justify-between p-4 rounded-md"
           style={{ border: '1px solid rgba(110,200,169,0.15)', background: 'rgba(110,200,169,0.04)' }}
         >
-          <div>
-            <p className="font-mono text-xs" style={{ color: 'var(--caio-text-secondary)' }}>
-              {committedTasks.length} committed task{committedTasks.length !== 1 ? 's' : ''} ready to push
-            </p>
-            {pushResult && (
-              <p
-                className="font-mono text-[10px] mt-1"
-                style={{ color: pushResult.ok ? '#6EC8A9' : '#C86E6E' }}
-              >
-                {pushResult.ok ? '✓ Pushed successfully' : `✗ ${pushResult.error}`}
-              </p>
-            )}
-          </div>
-          <button
-            onClick={handlePush}
-            disabled={!!loadingAction}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6,
-              background: 'transparent',
-              color: '#6EC8A9',
-              border: '1px solid rgba(110,200,169,0.35)',
-              borderRadius: 5,
-              padding: '7px 14px',
-              fontFamily: 'var(--font-jetbrains)',
-              fontSize: 11,
-              fontWeight: 600,
-              cursor: loadingAction ? 'not-allowed' : 'pointer',
-            }}
-          >
-            {loadingAction === 'push' ? <Loader2 className="w-3 h-3 animate-spin" /> : '↑ Push to GitHub'}
-          </button>
+          <p className="font-mono text-xs" style={{ color: '#6EC8A9' }}>
+            ✓ {committedTasks.length} task{committedTasks.length !== 1 ? 's' : ''} committed &amp; pushed
+          </p>
         </div>
       )}
     </div>

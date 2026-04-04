@@ -4,6 +4,48 @@ All notable changes to this project are documented here.
 
 ---
 
+## [0.8.2] — 2026-04-04
+
+### Improved
+
+- **README**: Replaced default Next.js boilerplate with a comprehensive project README covering features, architecture, tech stack, getting started, agents, and project structure.
+- **Screenshots**: Added automated screenshots of the dashboard, task engine, bootstrap wizard, and integrations pages (`public/screenshots/`).
+
+---
+
+## [0.8.1] — 2026-03-25
+
+### Fixed
+
+- **Task generation**: Existing pending tasks are no longer wiped when the AI returns 0 tasks (e.g. due to JSON parse failure). The replace only happens if valid tasks were parsed; otherwise the session is set to `ERROR` and the old tasks are preserved.
+- **JSON parsing**: Replaced fragile greedy regex with a proper balanced-brace extractor that handles string escaping, preamble/postamble text, and markdown code blocks — reliably finds any `{"tasks": [...]}` object in the AI response regardless of surrounding content.
+
+---
+
+## [0.8.0] — 2026-03-24
+
+### Cycle Review (Opus 4.6)
+
+A code review step powered by Claude Opus 4.6 is now available between development cycles in the Task Engine.
+
+**What it does**
+- Analyzes the full repo: directory tree, SPEC.md, README, CHANGELOG, committed tasks, source files
+- Reviews implementation quality, feature completeness, code quality, test coverage, and next-cycle readiness
+- Outputs a structured markdown report with concrete, file-specific findings
+
+**How to use**
+- Click **▶ Run Review** in the purple "Cycle Review" panel at the bottom of the session view
+- Review runs in the background; the panel polls and displays results when ready
+- Re-run at any time with **↺ Re-run Review**
+
+**Architecture**
+- New `reviewContent`, `reviewStatus`, `reviewCycle` fields on `RepoSession` (migration `20260324220959_add_cycle_review`)
+- `runCycleReview(sessionId)` in `lib/repo-engine.ts` — uses `claude-opus-4-6` via `generateText(prompt, model)`
+- API: `POST /api/repo-engine/[id]/review`
+- Polling extended to include `reviewStatus === 'RUNNING'`
+
+---
+
 ## [0.7.0] — 2026-03-24
 
 ### AI Task Engine on Existing Repo

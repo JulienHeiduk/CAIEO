@@ -5,7 +5,7 @@ import { generateCycleTasks } from '@/lib/repo-engine'
 
 type RouteContext = { params: Promise<{ id: string }> }
 
-export async function POST(_req: NextRequest, { params }: RouteContext) {
+export async function POST(req: NextRequest, { params }: RouteContext) {
   try {
     const { id } = await params
     const user = await requireUser()
@@ -18,6 +18,11 @@ export async function POST(_req: NextRequest, { params }: RouteContext) {
       return Response.json({ error: 'Session not found' }, { status: 404 })
     }
 
+    const body = await req.json().catch(() => ({})) as { userContext?: string; contextFiles?: string[]; taskCount?: number }
+    const userContext = body.userContext?.trim() || null
+    const contextFiles = body.contextFiles?.filter(Boolean) ?? []
+    const taskCount = Math.min(Math.max(Number(body.taskCount) || 5, 1), 20)
+
     const updatedSession = await prisma.repoSession.update({
       where: { id },
       data: {
@@ -27,7 +32,7 @@ export async function POST(_req: NextRequest, { params }: RouteContext) {
     })
 
     // Fire in background
-    generateCycleTasks(id).catch(console.error)
+    generateCycleTasks(id, userContext ?? undefined, contextFiles, taskCount).catch(console.error)
 
     return Response.json({ ok: true, currentCycle: updatedSession.currentCycle })
   } catch (err) {

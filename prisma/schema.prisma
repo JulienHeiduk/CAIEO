@@ -32,6 +32,10 @@ model RepoSession {
   contextStatus  String     @default("PENDING")
   currentCycle   Int        @default(1)
   status         String     @default("ACTIVE")
+  reviewContent  String?
+  reviewLog      String?
+  reviewStatus   String     @default("IDLE")
+  reviewCycle    Int?
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
   repoTasks      RepoTask[]

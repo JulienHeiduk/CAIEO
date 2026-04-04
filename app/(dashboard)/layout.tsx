@@ -38,14 +38,6 @@ export default function DashboardLayout({
             Portfolio
           </Link>
           <Link
-            href="/companies/new"
-            className="flex items-center gap-3 px-3 py-2 rounded-md transition-colors font-mono text-xs"
-            style={{ color: 'var(--caio-text-secondary)' }}
-          >
-            <span style={{ color: 'var(--caio-gold)' }}>+</span>
-            New Company
-          </Link>
-          <Link
             href="/github/bootstrap"
             className="flex items-center gap-3 px-3 py-2 rounded-md transition-colors font-mono text-xs"
             style={{ color: 'var(--caio-text-secondary)' }}
@@ -60,6 +52,14 @@ export default function DashboardLayout({
           >
             <span style={{ color: 'var(--caio-gold)' }}>⊕</span>
             Task Engine
+          </Link>
+          <Link
+            href="/companies/new"
+            className="flex items-center gap-3 px-3 py-2 rounded-md transition-colors font-mono text-xs"
+            style={{ color: 'var(--caio-text-secondary)' }}
+          >
+            <span style={{ color: 'var(--caio-gold)' }}>+</span>
+            New Company
           </Link>
         </nav>
 
