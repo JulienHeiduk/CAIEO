@@ -28,3 +28,28 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
     return Response.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
+
+export async function DELETE(_req: NextRequest, { params }: RouteContext) {
+  try {
+    const { id } = await params
+    const user = await requireUser()
+
+    const session = await prisma.repoSession.findFirst({
+      where: { id, userId: user.id },
+    })
+
+    if (!session) {
+      return Response.json({ error: 'Session not found' }, { status: 404 })
+    }
+
+    await prisma.repoSession.delete({ where: { id } })
+
+    return Response.json({ success: true })
+  } catch (err) {
+    if ((err as Error).message === 'Unauthorized') {
+      return Response.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    console.error('DELETE /api/repo-engine/[id] error:', err)
+    return Response.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}

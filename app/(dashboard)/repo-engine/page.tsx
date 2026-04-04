@@ -2,6 +2,7 @@ import { requireUser } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import Link from 'next/link'
 import { NewSessionForm } from '@/components/repo-engine/NewSessionForm'
+import { DeleteSessionButton } from '@/components/repo-engine/DeleteSessionButton'
 
 export default async function RepoEnginePage() {
   const user = await requireUser()
@@ -82,16 +83,19 @@ export default async function RepoEnginePage() {
                       <span className="font-mono text-sm font-semibold" style={{ color: 'var(--caio-text)' }}>
                         {session.repoName}
                       </span>
-                      <span
-                        className="font-mono text-[9px] px-1.5 py-px rounded"
-                        style={{
-                          color: statusColor(session.contextStatus),
-                          background: `${statusColor(session.contextStatus)}15`,
-                          border: `1px solid ${statusColor(session.contextStatus)}30`,
-                        }}
-                      >
-                        {session.contextStatus}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="font-mono text-[9px] px-1.5 py-px rounded"
+                          style={{
+                            color: statusColor(session.contextStatus),
+                            background: `${statusColor(session.contextStatus)}15`,
+                            border: `1px solid ${statusColor(session.contextStatus)}30`,
+                          }}
+                        >
+                          {session.contextStatus}
+                        </span>
+                        <DeleteSessionButton sessionId={session.id} sessionName={session.repoName} />
+                      </div>
                     </div>
                     <p className="font-mono text-[10px] truncate mb-2" style={{ color: 'var(--caio-text-dim)' }}>
                       {session.repoPath}

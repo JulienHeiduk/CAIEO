@@ -4,6 +4,16 @@ All notable changes to this project are documented here.
 
 ---
 
+## [0.8.4] — 2026-04-04
+
+### Added
+
+- **Delete session**: Added a delete button on each active session card in the Task Engine. Clicking it shows a confirm/cancel prompt; confirmed deletions remove the session and all its tasks (cascade) from the database.
+  - New API: `DELETE /api/repo-engine/[id]`
+  - New component: `DeleteSessionButton`
+
+---
+
 ## [0.8.3] — 2026-04-04
 
 ### Chore
