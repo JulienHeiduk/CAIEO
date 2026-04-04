@@ -1,7 +1,3 @@
-import Anthropic from '@anthropic-ai/sdk'
-
-export const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY!,
-})
-
+// Claude Code SDK is used directly via @anthropic-ai/claude-agent-sdk
+// This file is kept for compatibility
 export const MODEL = 'claude-sonnet-4-6'

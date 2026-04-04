@@ -1,15 +1,53 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Task } from '@/lib/generated/prisma'
 import { TaskCard } from './TaskCard'
-import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
-import { CheckCheck, RefreshCw } from 'lucide-react'
+import { Loader2, RefreshCw, CheckCheck } from 'lucide-react'
 
 interface TaskListProps {
   companyId: string
   initialTasks: Task[]
+}
+
+const btnGold = {
+  background: 'var(--caio-gold)',
+  color: '#0F0F1A',
+  border: 'none',
+  borderRadius: 5,
+  padding: '7px 16px',
+  fontFamily: 'var(--font-jetbrains)',
+  fontSize: 11,
+  fontWeight: 700,
+  letterSpacing: '0.05em',
+  cursor: 'pointer',
+  display: 'flex',
+  alignItems: 'center',
+  gap: 6,
+} as const
+
+const btnGhost = {
+  background: 'transparent',
+  border: '1px solid rgba(255,255,255,0.12)',
+  color: 'var(--caio-text-secondary)',
+  borderRadius: 5,
+  padding: '7px 14px',
+  fontFamily: 'var(--font-jetbrains)',
+  fontSize: 11,
+  cursor: 'pointer',
+  display: 'flex',
+  alignItems: 'center',
+  gap: 6,
+} as const
+
+const sectionLabel = {
+  fontFamily: 'var(--font-jetbrains)',
+  fontSize: 9,
+  color: 'var(--caio-text-muted)',
+  textTransform: 'uppercase' as const,
+  letterSpacing: '0.1em',
+  marginBottom: 10,
 }
 
 export function TaskList({ companyId, initialTasks }: TaskListProps) {
@@ -18,22 +56,35 @@ export function TaskList({ companyId, initialTasks }: TaskListProps) {
   const [batchApproving, setBatchApproving] = useState(false)
 
   const pendingTasks = tasks.filter((t) => t.status === 'PENDING_REVIEW')
+  const executingTasks = tasks.filter((t) => t.status === 'EXECUTING')
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  const updateTask = (updated: Task) => {
+  const updateTask = (updated: Task) =>
     setTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)))
+
+  const refreshTasks = async () => {
+    const res = await fetch(`/api/companies/${companyId}/tasks`)
+    const data = await res.json()
+    if (data.tasks) setTasks(data.tasks)
   }
+
+  // Auto-poll every 3s while any task is executing
+  useEffect(() => {
+    if (executingTasks.length > 0) {
+      pollingRef.current = setInterval(refreshTasks, 3000)
+    } else {
+      if (pollingRef.current) clearInterval(pollingRef.current)
+    }
+    return () => { if (pollingRef.current) clearInterval(pollingRef.current) }
+  }, [executingTasks.length])
 
   const handleGenerateTasks = async () => {
     setGenerating(true)
     try {
       const res = await fetch(`/api/companies/${companyId}/tasks`, { method: 'POST' })
       const data = await res.json()
-      if (!res.ok) {
-        toast.error(data.error ?? 'Failed to generate tasks')
-        return
-      }
-      toast.success(`Generated ${data.tasksGenerated} new tasks`)
-      // Refresh task list
+      if (!res.ok) { toast.error(data.error ?? 'Failed to generate tasks'); return }
+      toast.success(`Generated ${data.tasksGenerated} tasks`)
       const listRes = await fetch(`/api/companies/${companyId}/tasks`)
       const listData = await listRes.json()
       if (listData.tasks) setTasks(listData.tasks)
@@ -73,112 +124,98 @@ export function TaskList({ companyId, initialTasks }: TaskListProps) {
 
   const tasksByStatus = {
     PENDING_REVIEW: tasks.filter((t) => t.status === 'PENDING_REVIEW'),
-    APPROVED: tasks.filter((t) => t.status === 'APPROVED'),
-    EXECUTING: tasks.filter((t) => t.status === 'EXECUTING'),
-    COMPLETED: tasks.filter((t) => t.status === 'COMPLETED'),
-    REJECTED: tasks.filter((t) => t.status === 'REJECTED'),
-    FAILED: tasks.filter((t) => t.status === 'FAILED'),
+    APPROVED:       tasks.filter((t) => t.status === 'APPROVED'),
+    EXECUTING:      tasks.filter((t) => t.status === 'EXECUTING'),
+    COMPLETED:      tasks.filter((t) => t.status === 'COMPLETED'),
+    REJECTED:       tasks.filter((t) => t.status === 'REJECTED'),
+    FAILED:         tasks.filter((t) => t.status === 'FAILED'),
+  }
+
+  const history = [...tasksByStatus.EXECUTING, ...tasksByStatus.COMPLETED, ...tasksByStatus.FAILED, ...tasksByStatus.REJECTED]
+
+  // Empty state
+  if (tasks.length === 0) {
+    return (
+      <div
+        className="flex flex-col items-center justify-center min-h-[300px] rounded-xl gap-5"
+        style={{ border: '1px dashed rgba(255,255,255,0.1)' }}
+      >
+        <div className="text-center">
+          <div className="font-heading text-2xl mb-2" style={{ color: 'var(--caio-text)' }}>No tasks yet</div>
+          <p className="font-mono text-xs" style={{ color: 'var(--caio-text-dim)', lineHeight: 1.7 }}>
+            Generate your first batch of 5 tasks.<br />Review and approve each one before the AI executes.
+          </p>
+        </div>
+        <button onClick={handleGenerateTasks} disabled={generating} style={btnGold}>
+          {generating ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+          Generate 5 Tasks
+        </button>
+      </div>
+    )
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <p className="text-slate-400 text-sm">
-          {pendingTasks.length} task{pendingTasks.length !== 1 ? 's' : ''} awaiting review
-        </p>
-        <div className="flex gap-2">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      {/* Executing banner */}
+      {executingTasks.length > 0 && (
+        <div
+          className="flex items-center gap-3 rounded-lg px-4 py-3"
+          style={{ background: 'rgba(200,169,110,0.06)', border: '1px solid rgba(200,169,110,0.2)', borderLeft: '3px solid var(--caio-gold)' }}
+        >
+          <Loader2 className="w-3 h-3 animate-spin flex-shrink-0" style={{ color: 'var(--caio-gold)' }} />
+          <span className="font-mono text-xs" style={{ color: 'var(--caio-gold)' }}>
+            AI is working on {executingTasks.length} task{executingTasks.length > 1 ? 's' : ''}... checking for updates every 3s
+          </span>
+        </div>
+      )}
+
+      {/* Toolbar */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span className="font-mono text-xs" style={{ color: 'var(--caio-text-muted)' }}>
+          {pendingTasks.length} awaiting review
+        </span>
+        <div style={{ display: 'flex', gap: 8 }}>
           {pendingTasks.length > 1 && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleBatchApprove}
-              disabled={batchApproving}
-              className="border-green-500/50 text-green-400 hover:bg-green-500/10"
-            >
-              <CheckCheck className="w-4 h-4 mr-2" />
+            <button onClick={handleBatchApprove} disabled={batchApproving} style={{ ...btnGhost, borderColor: 'rgba(110,200,169,0.3)', color: '#6EC8A9' }}>
+              {batchApproving ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCheck className="w-3 h-3" />}
               Approve All
-            </Button>
+            </button>
           )}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleGenerateTasks}
-            disabled={generating}
-            className="border-slate-700 text-slate-300"
-          >
-            <RefreshCw className={`w-4 h-4 mr-2 ${generating ? 'animate-spin' : ''}`} />
-            Generate Tasks
-          </Button>
+          <button onClick={handleGenerateTasks} disabled={generating} style={btnGold}>
+            {generating ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+            {generating ? 'Generating...' : '+ 5 Tasks'}
+          </button>
         </div>
       </div>
 
-      {tasks.length === 0 ? (
-        <div className="text-center py-16 border border-dashed border-slate-700 rounded-xl">
-          <p className="text-slate-400 mb-4">No tasks yet. Generate your daily task plan.</p>
-          <Button
-            onClick={handleGenerateTasks}
-            disabled={generating}
-            className="bg-purple-600 hover:bg-purple-700"
-          >
-            Generate Tasks
-          </Button>
-        </div>
-      ) : (
-        <div className="space-y-6">
-          {tasksByStatus.PENDING_REVIEW.length > 0 && (
-            <section>
-              <h2 className="text-sm font-medium text-slate-400 uppercase tracking-wider mb-3">
-                Pending Review ({tasksByStatus.PENDING_REVIEW.length})
-              </h2>
-              <div className="space-y-3">
-                {tasksByStatus.PENDING_REVIEW.map((task) => (
-                  <TaskCard
-                    key={task.id}
-                    task={task}
-                    companyId={companyId}
-                    onUpdate={updateTask}
-                  />
-                ))}
-              </div>
-            </section>
-          )}
+      {/* Pending */}
+      {tasksByStatus.PENDING_REVIEW.length > 0 && (
+        <section>
+          <div style={sectionLabel}>⚑ Pending Review ({tasksByStatus.PENDING_REVIEW.length})</div>
+          {tasksByStatus.PENDING_REVIEW.map((task) => (
+            <TaskCard key={task.id} task={task} companyId={companyId} onUpdate={updateTask} />
+          ))}
+        </section>
+      )}
 
-          {tasksByStatus.APPROVED.length > 0 && (
-            <section>
-              <h2 className="text-sm font-medium text-slate-400 uppercase tracking-wider mb-3">
-                Approved ({tasksByStatus.APPROVED.length})
-              </h2>
-              <div className="space-y-3">
-                {tasksByStatus.APPROVED.map((task) => (
-                  <TaskCard
-                    key={task.id}
-                    task={task}
-                    companyId={companyId}
-                    onUpdate={updateTask}
-                  />
-                ))}
-              </div>
-            </section>
-          )}
+      {/* Approved */}
+      {tasksByStatus.APPROVED.length > 0 && (
+        <section>
+          <div style={sectionLabel}>✓ Approved — ready to run ({tasksByStatus.APPROVED.length})</div>
+          {tasksByStatus.APPROVED.map((task) => (
+            <TaskCard key={task.id} task={task} companyId={companyId} onUpdate={updateTask} />
+          ))}
+        </section>
+      )}
 
-          {(tasksByStatus.EXECUTING.length > 0 || tasksByStatus.COMPLETED.length > 0 || tasksByStatus.FAILED.length > 0) && (
-            <section>
-              <h2 className="text-sm font-medium text-slate-400 uppercase tracking-wider mb-3">
-                History
-              </h2>
-              <div className="space-y-3">
-                {[...tasksByStatus.EXECUTING, ...tasksByStatus.COMPLETED, ...tasksByStatus.FAILED, ...tasksByStatus.REJECTED].map((task) => (
-                  <TaskCard
-                    key={task.id}
-                    task={task}
-                    companyId={companyId}
-                    onUpdate={updateTask}
-                  />
-                ))}
-              </div>
-            </section>
-          )}
-        </div>
+      {/* History */}
+      {history.length > 0 && (
+        <section>
+          <div style={sectionLabel}>◎ History ({history.length})</div>
+          {history.map((task) => (
+            <TaskCard key={task.id} task={task} companyId={companyId} onUpdate={updateTask} />
+          ))}
+        </section>
       )}
     </div>
   )

@@ -1,50 +1,27 @@
-export const dynamic = 'force-dynamic'
-
 import Link from 'next/link'
-import { auth } from '@clerk/nextjs/server'
-import { redirect } from 'next/navigation'
 
-export default async function HomePage() {
-  const { userId } = await auth()
-  if (userId) redirect('/dashboard')
+const goldBtn = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  background: 'var(--caio-gold)',
+  color: '#0F0F1A',
+  border: 'none',
+  borderRadius: 6,
+  padding: '12px 28px',
+  fontFamily: 'var(--font-jetbrains)',
+  fontSize: 13,
+  fontWeight: 700,
+  letterSpacing: '0.05em',
+  textDecoration: 'none',
+} as const
 
-  const goldBtn = {
-    display: 'inline-flex',
-    alignItems: 'center',
-    background: 'var(--caio-gold)',
-    color: '#0F0F1A',
-    border: 'none',
-    borderRadius: 6,
-    padding: '12px 28px',
-    fontFamily: 'var(--font-jetbrains)',
-    fontSize: 13,
-    fontWeight: 700,
-    letterSpacing: '0.05em',
-    textDecoration: 'none',
-  } as const
-
-  const ghostBtn = {
-    display: 'inline-flex',
-    alignItems: 'center',
-    background: 'transparent',
-    color: 'var(--caio-gold)',
-    border: '1px solid rgba(200,169,110,0.4)',
-    borderRadius: 6,
-    padding: '12px 28px',
-    fontFamily: 'var(--font-jetbrains)',
-    fontSize: 13,
-    fontWeight: 700,
-    letterSpacing: '0.05em',
-    textDecoration: 'none',
-  } as const
-
+export default function HomePage() {
   return (
     <main
       className="min-h-screen flex flex-col items-center justify-center px-6"
       style={{ background: 'var(--caio-bg)', color: 'var(--caio-text)' }}
     >
       <div className="max-w-3xl mx-auto text-center" style={{ display: 'flex', flexDirection: 'column', gap: 40 }}>
-
         {/* Brand */}
         <div>
           <div
@@ -72,11 +49,8 @@ export default async function HomePage() {
 
         {/* CTA */}
         <div className="flex gap-4 justify-center flex-wrap">
-          <Link href="/sign-up" style={goldBtn}>
-            Get Started Free →
-          </Link>
-          <Link href="/sign-in" style={ghostBtn}>
-            Sign In
+          <Link href="/dashboard" style={goldBtn}>
+            Get Started →
           </Link>
         </div>
 
@@ -98,7 +72,6 @@ export default async function HomePage() {
             </div>
           ))}
         </div>
-
       </div>
     </main>
   )

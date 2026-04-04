@@ -66,6 +66,28 @@ export default async function DashboardPage() {
               ⚑ {totalPending} pending
             </span>
           )}
+          <Link
+            href="/github/bootstrap"
+            style={{
+              ...goldBtn,
+              background: 'rgba(200,169,110,0.12)',
+              color: 'var(--caio-gold)',
+              border: '1px solid rgba(200,169,110,0.3)',
+            }}
+          >
+            ⌥ Bootstrap Repo
+          </Link>
+          <Link
+            href="/repo-engine"
+            style={{
+              ...goldBtn,
+              background: 'rgba(200,169,110,0.12)',
+              color: 'var(--caio-gold)',
+              border: '1px solid rgba(200,169,110,0.3)',
+            }}
+          >
+            ⊕ Task Engine
+          </Link>
           <Link href="/companies/new" style={goldBtn}>
             + New Company
           </Link>
@@ -90,9 +112,37 @@ export default async function DashboardPage() {
             Each company gets its own CAIO instance — strategy, engineering,
             marketing, outreach, ops. You validate once a day.
           </p>
-          <Link href="/companies/new" style={{ ...goldBtn, padding: '12px 24px', fontSize: 12 }}>
-            + LAUNCH FIRST COMPANY
-          </Link>
+          <div className="flex items-center gap-3 flex-wrap justify-center">
+            <Link href="/companies/new" style={{ ...goldBtn, padding: '12px 24px', fontSize: 12 }}>
+              + LAUNCH FIRST COMPANY
+            </Link>
+            <Link
+              href="/github/bootstrap"
+              style={{
+                ...goldBtn,
+                padding: '12px 24px',
+                fontSize: 12,
+                background: 'rgba(200,169,110,0.12)',
+                color: 'var(--caio-gold)',
+                border: '1px solid rgba(200,169,110,0.3)',
+              }}
+            >
+              ⌥ BOOTSTRAP REPO
+            </Link>
+            <Link
+              href="/repo-engine"
+              style={{
+                ...goldBtn,
+                padding: '12px 24px',
+                fontSize: 12,
+                background: 'rgba(200,169,110,0.12)',
+                color: 'var(--caio-gold)',
+                border: '1px solid rgba(200,169,110,0.3)',
+              }}
+            >
+              ⊕ TASK ENGINE
+            </Link>
+          </div>
         </div>
       ) : (
         <>
@@ -122,7 +172,7 @@ export default async function DashboardPage() {
             {companies.map((company) => (
               <CompanyCard key={company.id} company={company} />
             ))}
-            {/* Add new */}
+            {/* Add new company */}
             <Link
               href="/companies/new"
               className="rounded-xl flex flex-col items-center justify-center gap-2 min-h-[160px] transition-colors"
@@ -130,6 +180,24 @@ export default async function DashboardPage() {
             >
               <span style={{ fontSize: 24, color: 'var(--caio-text-dim)' }}>+</span>
               <span className="font-mono text-xs" style={{ color: 'var(--caio-text-dim)' }}>New Company</span>
+            </Link>
+            {/* Bootstrap repo */}
+            <Link
+              href="/github/bootstrap"
+              className="rounded-xl flex flex-col items-center justify-center gap-2 min-h-[160px] transition-colors"
+              style={{ border: '1px dashed rgba(200,169,110,0.2)', textDecoration: 'none' }}
+            >
+              <span style={{ fontSize: 22, color: 'var(--caio-gold)', opacity: 0.5 }}>⌥</span>
+              <span className="font-mono text-xs" style={{ color: 'var(--caio-text-dim)' }}>Bootstrap Repo</span>
+            </Link>
+            {/* Task Engine */}
+            <Link
+              href="/repo-engine"
+              className="rounded-xl flex flex-col items-center justify-center gap-2 min-h-[160px] transition-colors"
+              style={{ border: '1px dashed rgba(200,169,110,0.2)', textDecoration: 'none' }}
+            >
+              <span style={{ fontSize: 22, color: 'var(--caio-gold)', opacity: 0.5 }}>⊕</span>
+              <span className="font-mono text-xs" style={{ color: 'var(--caio-text-dim)' }}>Task Engine</span>
             </Link>
           </div>
         </>

@@ -43,9 +43,13 @@ Use the provided tools to save your outputs.`
   ]
 
   protected buildInitialPrompt(): string {
+    const githubSection = this.context.company.githubContext
+      ? `\n\nGitHub Repository Context:\n${this.context.company.githubContext}`
+      : ''
+
     return `Analyze this startup idea and define the company:
 
-Idea: ${this.context.company.ideaPrompt}
+Idea: ${this.context.company.ideaPrompt}${githubSection}
 
 Please:
 1. Create a compelling company name using set_company_name

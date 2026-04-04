@@ -1,21 +1,13 @@
 export const dynamic = 'force-dynamic'
 
-import { requireUser } from '@/lib/auth'
-import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { UserButton } from '@clerk/nextjs'
+import { Settings } from 'lucide-react'
 
-export default async function DashboardLayout({
+export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  try {
-    await requireUser()
-  } catch {
-    redirect('/sign-in')
-  }
-
   return (
     <div className="min-h-screen flex" style={{ background: 'var(--caio-bg)', color: 'var(--caio-text)' }}>
       {/* Sidebar */}
@@ -46,6 +38,22 @@ export default async function DashboardLayout({
             Portfolio
           </Link>
           <Link
+            href="/github/bootstrap"
+            className="flex items-center gap-3 px-3 py-2 rounded-md transition-colors font-mono text-xs"
+            style={{ color: 'var(--caio-text-secondary)' }}
+          >
+            <span style={{ color: 'var(--caio-gold)' }}>⌥</span>
+            Bootstrap Repo
+          </Link>
+          <Link
+            href="/repo-engine"
+            className="flex items-center gap-3 px-3 py-2 rounded-md transition-colors font-mono text-xs"
+            style={{ color: 'var(--caio-text-secondary)' }}
+          >
+            <span style={{ color: 'var(--caio-gold)' }}>⊕</span>
+            Task Engine
+          </Link>
+          <Link
             href="/companies/new"
             className="flex items-center gap-3 px-3 py-2 rounded-md transition-colors font-mono text-xs"
             style={{ color: 'var(--caio-text-secondary)' }}
@@ -55,15 +63,16 @@ export default async function DashboardLayout({
           </Link>
         </nav>
 
-        {/* User */}
-        <div
-          className="p-4 flex items-center gap-3"
-          style={{ borderTop: '1px solid var(--caio-border)' }}
-        >
-          <UserButton />
-          <span className="font-mono text-[10px]" style={{ color: 'var(--caio-text-muted)' }}>
-            Account
-          </span>
+        {/* Bottom: settings */}
+        <div className="p-4" style={{ borderTop: '1px solid var(--caio-border)' }}>
+          <Link
+            href="/settings"
+            className="flex items-center gap-3 px-3 py-2 rounded-md transition-colors font-mono text-xs"
+            style={{ color: 'var(--caio-text-muted)' }}
+          >
+            <Settings className="w-3 h-3" />
+            Integrations
+          </Link>
         </div>
       </aside>
 

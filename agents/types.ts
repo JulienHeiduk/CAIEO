@@ -7,6 +7,7 @@ export interface AgentContext {
     ideaPrompt: string
     strategy: string | null
     landingPageUrl: string | null
+    githubContext?: string | null
   }
   recentLogs: Array<{
     eventType: string

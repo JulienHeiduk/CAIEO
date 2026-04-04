@@ -72,7 +72,9 @@ export async function POST(_req: NextRequest, { params }: RouteContext) {
     }
 
     const orchestrator = new OrchestratorAgent(context)
+    console.log('[orchestrator] generating tasks for', company.name)
     const taskCount = await orchestrator.generateDailyTasks()
+    console.log('[orchestrator] generated', taskCount, 'tasks')
 
     return Response.json({ tasksGenerated: taskCount })
   } catch (err) {
