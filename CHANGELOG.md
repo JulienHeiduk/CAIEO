@@ -4,6 +4,17 @@ All notable changes to this project are documented here.
 
 ---
 
+## [0.8.3] — 2026-04-04
+
+### Chore
+
+- **Repo cleanup**: Moved specs (`SPEC_bootstrap_repo.md`, `SPEC_taskengine_repo.md`, `TechnicalStack.md`) to `docs/`.
+- **Dead files removed**: Deleted `chief-ai-officer.jsx` (unused prototype), `proxy.ts` (no-op middleware), `REVIEW.md` (wrong project), default Next.js SVGs, and legacy `screenshots/` directory.
+- **Trigger.dev removed**: Deleted disconnected `jobs/` directory and `trigger.config.ts`; uninstalled `@trigger.dev/sdk` and `@trigger.dev/nextjs` dependencies.
+- **Gitignore**: Added `.claude/settings.local.json` (machine-specific) to `.gitignore`.
+
+---
+
 ## [0.8.2] — 2026-04-04
 
 ### Improved

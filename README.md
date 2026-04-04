@@ -54,7 +54,7 @@ Configure Vercel and GitHub tokens for automated deployments and code pushes. To
 | Database | Prisma + SQLite (local dev) |
 | UI | Tailwind CSS 4, shadcn/ui, Lucide icons |
 | Auth | Clerk (optional) |
-| Integrations | GitHub API, Vercel API, Trigger.dev |
+| Integrations | GitHub API, Vercel API |
 
 ## Getting Started
 

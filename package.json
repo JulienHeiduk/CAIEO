@@ -17,8 +17,6 @@
     "@prisma/adapter-pg": "^7.5.0",
     "@prisma/client": "^7.5.0",
     "@supabase/supabase-js": "^2.99.3",
-    "@trigger.dev/nextjs": "^3.3.12",
-    "@trigger.dev/sdk": "^3.3.17",
     "@types/better-sqlite3": "^7.6.13",
     "@types/pg": "^8.18.0",
     "@upstash/ratelimit": "^2.0.8",
