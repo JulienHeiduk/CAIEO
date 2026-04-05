@@ -96,9 +96,45 @@ model UserSettings {
   id           String   @id @default(cuid())
   userId       String   @unique
   user         User     @relation(fields: [userId], references: [id])
-  vercelToken  String?
-  vercelTeamId String?
-  githubToken  String?
+
+  // Deployment & Code
+  vercelToken       String?
+  vercelTeamId      String?
+  githubToken       String?
+
+  // Backend & Database
+  supabaseToken     String?
+  supabaseOrgId     String?
+
+  // Payments
+  stripeSecretKey   String?
+
+  // Email
+  resendApiKey      String?
+
+  // Auth
+  clerkSecretKey    String?
+
+  // Analytics & Monitoring
+  posthogApiKey     String?
+  posthogHost       String?
+  sentryAuthToken   String?
+  sentryOrg         String?
+
+  // Vector DB
+  pineconeApiKey    String?
+
+  // Social Media
+  linkedinToken     String?
+  twitterApiKey     String?
+  twitterApiSecret  String?
+  twitterAccessToken  String?
+  twitterAccessSecret String?
+  redditClientId    String?
+  redditClientSecret String?
+  redditUsername     String?
+  redditPassword     String?
+
   updatedAt    DateTime @updatedAt
 }
 
@@ -175,6 +211,16 @@ enum AgentType {
   GROWTH_MARKETING
   API_SCAFFOLD
   COMPANY_INIT
+  SUPABASE_SETUP
+  CLERK_SETUP
+  STRIPE_SETUP
+  RESEND_SETUP
+  POSTHOG_SETUP
+  SENTRY_SETUP
+  FRONTEND_BUILD
+  BACKEND_BUILD
+  VERCEL_DEPLOY
+  README_UPDATE
 }
 
 model ActivityLog {

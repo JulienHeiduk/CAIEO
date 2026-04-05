@@ -426,6 +426,7 @@ async function generateTasks(runId: string, companyId: string, userId: string): 
       ideaPrompt: company.ideaPrompt,
       strategy: company.strategy,
       landingPageUrl: company.landingPageUrl,
+      githubRepoUrl: company.githubRepoUrl,
     },
     recentLogs,
     userId,

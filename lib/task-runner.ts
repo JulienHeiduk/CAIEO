@@ -140,14 +140,125 @@ Include:
 
 Be specific and actionable. Format as markdown.`
 
-    case 'KAGGLE_POST':
+    case 'SUPABASE_SETUP':
       return `${base}
+${repoPath ? `\nYou are working in: ${repoPath}` : ''}
 
-Write a Kaggle community post or competition strategy for ${company.name}.
-Include dataset suggestions, approach, and how to position in the community.`
+Set up Supabase for ${company.name}. Write the configuration and migration files directly to the repo.
+Include:
+- SQL migration file with tables, RLS policies, indexes
+- Supabase client setup (TypeScript)
+- Types generated from the schema
+- .env.example with required SUPABASE_URL and SUPABASE_ANON_KEY placeholders
+${repoPath ? `Write files to ${repoPath}/ using proper structure (e.g., supabase/migrations/, lib/supabase.ts).` : 'Format with === FILE: path === blocks.'}`
+
+    case 'CLERK_SETUP':
+      return `${base}
+${repoPath ? `\nYou are working in: ${repoPath}` : ''}
+
+Set up Clerk authentication for ${company.name}.
+Include:
+- Middleware configuration for Next.js or FastAPI
+- Sign-in / sign-up components or routes
+- Auth utility functions
+- .env.example with CLERK_SECRET_KEY, NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY placeholders
+${repoPath ? `Write files to ${repoPath}/.` : 'Format with === FILE: path === blocks.'}`
+
+    case 'STRIPE_SETUP':
+      return `${base}
+${repoPath ? `\nYou are working in: ${repoPath}` : ''}
+
+Set up Stripe payments for ${company.name}.
+Include:
+- Product and price creation script
+- Checkout session API endpoint
+- Webhook handler for payment events
+- Customer portal configuration
+- .env.example with STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET placeholders
+${repoPath ? `Write files to ${repoPath}/.` : 'Format with === FILE: path === blocks.'}`
+
+    case 'RESEND_SETUP':
+      return `${base}
+${repoPath ? `\nYou are working in: ${repoPath}` : ''}
+
+Set up Resend for transactional emails for ${company.name}.
+Include:
+- Email sending utility with Resend SDK
+- Welcome email template
+- Password reset email template
+- .env.example with RESEND_API_KEY placeholder
+${repoPath ? `Write files to ${repoPath}/.` : 'Format with === FILE: path === blocks.'}`
+
+    case 'POSTHOG_SETUP':
+      return `${base}
+${repoPath ? `\nYou are working in: ${repoPath}` : ''}
+
+Add PostHog analytics to ${company.name}.
+Include:
+- PostHog provider/initialization
+- Key event tracking (sign up, feature usage, conversion)
+- .env.example with NEXT_PUBLIC_POSTHOG_KEY placeholder
+${repoPath ? `Write files to ${repoPath}/.` : 'Format with === FILE: path === blocks.'}`
+
+    case 'SENTRY_SETUP':
+      return `${base}
+${repoPath ? `\nYou are working in: ${repoPath}` : ''}
+
+Add Sentry error tracking to ${company.name}.
+Include:
+- Sentry initialization (client + server)
+- Error boundary component
+- Source map upload config
+- .env.example with SENTRY_DSN placeholder
+${repoPath ? `Write files to ${repoPath}/.` : 'Format with === FILE: path === blocks.'}`
+
+    case 'FRONTEND_BUILD':
+      return `${base}
+${repoPath ? `\nYou are working in: ${repoPath}` : ''}
+
+Build the frontend feature described above for ${company.name}.
+- Use React/Next.js with TypeScript
+- Write clean, production-ready code
+- Include proper types and error handling
+- Create components, pages, and utilities as needed
+${repoPath ? `Write all files to ${repoPath}/ using proper Next.js app directory structure.` : 'Format with === FILE: path === blocks.'}`
+
+    case 'BACKEND_BUILD':
+      return `${base}
+${repoPath ? `\nYou are working in: ${repoPath}` : ''}
+
+Build the backend feature described above for ${company.name}.
+- Use FastAPI (Python) or Node.js/TypeScript depending on existing codebase
+- Write clean, production-ready code
+- Include proper types, validation, error handling
+- Create routes, services, models as needed
+${repoPath ? `Write all files to ${repoPath}/ using proper project structure.` : 'Format with === FILE: path === blocks.'}`
+
+    case 'VERCEL_DEPLOY':
+      return `${base}
+${repoPath ? `\nYou are working in: ${repoPath}` : ''}
+
+Prepare and configure deployment to Vercel for ${company.name}.
+- Create/update vercel.json with proper config
+- Ensure package.json has correct build scripts
+- Add any necessary environment variable documentation
+- Create .env.example with all required vars
+${repoPath ? `Write files to ${repoPath}/.` : 'Format with === FILE: path === blocks.'}`
+
+    case 'README_UPDATE':
+      return `${base}
+${repoPath ? `\nYou are working in: ${repoPath}` : ''}
+
+Update the README.md for ${company.name} to reflect the current state of the project.
+- Read the existing README.md and all source files to understand what's built
+- Update features list, setup instructions, architecture section
+- Add badges if appropriate (build status, license, version)
+- Keep it professional and comprehensive
+${repoPath ? `Read and update ${repoPath}/README.md.` : 'Output the full updated README.md content.'}`
 
     default:
       return `${base}
+${repoPath ? `\nYou are working in: ${repoPath}. Write any files there.` : ''}
 
 Complete this task. Produce the best possible output — be specific and actionable.`
   }
@@ -309,6 +420,144 @@ export async function runTask({ company, task, repoPath }: { company: CompanyInp
         }
       } catch (err) {
         await log(`Git commit error: ${(err as Error).message}`, false)
+      }
+    }
+
+    // ─── Auto-publish social media posts ──────────────────────────────────────
+    if (task.agentType === 'LINKEDIN_POST' && tokens.linkedinToken) {
+      try {
+        await log('Publishing to LinkedIn…', false)
+        const profileRes = await fetch('https://api.linkedin.com/v2/userinfo', {
+          headers: { Authorization: `Bearer ${tokens.linkedinToken}` },
+        })
+        const profile = await profileRes.json() as { sub?: string }
+        if (profile.sub) {
+          const postRes = await fetch('https://api.linkedin.com/v2/ugcPosts', {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${tokens.linkedinToken}`,
+              'Content-Type': 'application/json',
+              'X-Restli-Protocol-Version': '2.0.0',
+            },
+            body: JSON.stringify({
+              author: `urn:li:person:${profile.sub}`,
+              lifecycleState: 'PUBLISHED',
+              specificContent: {
+                'com.linkedin.ugc.ShareContent': {
+                  shareCommentary: { text: output.trim() },
+                  shareMediaCategory: 'NONE',
+                },
+              },
+              visibility: { 'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC' },
+            }),
+          })
+          if (postRes.ok) {
+            await log('Published to LinkedIn', false)
+            result.publishedLinkedin = true
+          } else {
+            await log(`LinkedIn publish failed: ${postRes.status}`, false)
+          }
+        }
+      } catch (err) {
+        await log(`LinkedIn error: ${(err as Error).message}`, false)
+      }
+    }
+
+    if (task.agentType === 'TWITTER_POST' && tokens.twitterApiKey && tokens.twitterApiSecret && tokens.twitterAccessToken && tokens.twitterAccessSecret) {
+      try {
+        await log('Publishing to Twitter/X…', false)
+        // OAuth 1.0a signature for Twitter API v2
+        const timestamp = Math.floor(Date.now() / 1000).toString()
+        const nonce = Math.random().toString(36).substring(2)
+        const tweetText = output.trim().slice(0, 280)
+
+        // Use OAuth 1.0a — build signature base
+        const method = 'POST'
+        const url = 'https://api.twitter.com/2/tweets'
+        const params: Record<string, string> = {
+          oauth_consumer_key: tokens.twitterApiKey,
+          oauth_nonce: nonce,
+          oauth_signature_method: 'HMAC-SHA1',
+          oauth_timestamp: timestamp,
+          oauth_token: tokens.twitterAccessToken,
+          oauth_version: '1.0',
+        }
+        const paramString = Object.keys(params).sort().map(k => `${encodeURIComponent(k)}=${encodeURIComponent(params[k])}`).join('&')
+        const sigBase = `${method}&${encodeURIComponent(url)}&${encodeURIComponent(paramString)}`
+        const sigKey = `${encodeURIComponent(tokens.twitterApiSecret)}&${encodeURIComponent(tokens.twitterAccessSecret)}`
+
+        const { createHmac } = await import('crypto')
+        const signature = createHmac('sha1', sigKey).update(sigBase).digest('base64')
+        params.oauth_signature = signature
+
+        const authHeader = 'OAuth ' + Object.keys(params).sort().map(k => `${encodeURIComponent(k)}="${encodeURIComponent(params[k])}"`).join(', ')
+
+        const tweetRes = await fetch(url, {
+          method: 'POST',
+          headers: { Authorization: authHeader, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: tweetText }),
+        })
+        if (tweetRes.ok) {
+          const tweetData = await tweetRes.json() as { data?: { id?: string } }
+          await log(`Published tweet: ${tweetData.data?.id ?? 'ok'}`, false)
+          result.publishedTwitter = true
+        } else {
+          await log(`Twitter publish failed: ${tweetRes.status}`, false)
+        }
+      } catch (err) {
+        await log(`Twitter error: ${(err as Error).message}`, false)
+      }
+    }
+
+    if (task.agentType === 'REDDIT_POST' && tokens.redditClientId && tokens.redditClientSecret && tokens.redditUsername && tokens.redditPassword) {
+      try {
+        await log('Publishing to Reddit…', false)
+        // Get OAuth token
+        const authStr = Buffer.from(`${tokens.redditClientId}:${tokens.redditClientSecret}`).toString('base64')
+        const tokenRes = await fetch('https://www.reddit.com/api/v1/access_token', {
+          method: 'POST',
+          headers: {
+            Authorization: `Basic ${authStr}`,
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'User-Agent': `CAIO/1.0 by ${tokens.redditUsername}`,
+          },
+          body: `grant_type=password&username=${encodeURIComponent(tokens.redditUsername)}&password=${encodeURIComponent(tokens.redditPassword)}`,
+        })
+        const tokenData = await tokenRes.json() as { access_token?: string }
+
+        if (tokenData.access_token) {
+          // Parse subreddit, title, body from output
+          const subredditMatch = output.match(/SUBREDDIT:\s*r\/(\w+)/i)
+          const titleMatch = output.match(/TITLE:\s*(.+)/i)
+          const bodyMatch = output.match(/BODY:\s*([\s\S]+)/i)
+
+          if (subredditMatch && titleMatch) {
+            const postRes = await fetch('https://oauth.reddit.com/api/submit', {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${tokenData.access_token}`,
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'User-Agent': `CAIO/1.0 by ${tokens.redditUsername}`,
+              },
+              body: new URLSearchParams({
+                kind: 'self',
+                sr: subredditMatch[1],
+                title: titleMatch[1].trim(),
+                text: bodyMatch?.[1]?.trim() ?? '',
+              }).toString(),
+            })
+            if (postRes.ok) {
+              await log(`Published to r/${subredditMatch[1]}`, false)
+              result.publishedReddit = true
+            } else {
+              await log(`Reddit publish failed: ${postRes.status}`, false)
+            }
+          } else {
+            await log('Could not parse subreddit/title from output', false)
+          }
+        }
+      } catch (err) {
+        await log(`Reddit error: ${(err as Error).message}`, false)
       }
     }
 

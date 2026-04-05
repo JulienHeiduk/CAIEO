@@ -61,6 +61,7 @@ export async function POST(_req: NextRequest, { params }: RouteContext) {
         ideaPrompt: company.ideaPrompt,
         strategy: company.strategy,
         landingPageUrl: company.landingPageUrl,
+        githubRepoUrl: company.githubRepoUrl,
       },
       recentLogs: company.activityLogs.map((log: any) => ({
         eventType: log.eventType,

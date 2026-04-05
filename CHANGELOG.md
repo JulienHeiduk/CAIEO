@@ -4,6 +4,49 @@ All notable changes to this project are documented here.
 
 ---
 
+## [0.10.0] — 2026-04-05
+
+### Full-Stack Autonomous Startup Engine
+
+CAIO now operates as a fully autonomous startup factory. The human approves 5 tasks, then CAIO builds, deploys, and markets the entire startup.
+
+**12 new integrations** (all on free tiers):
+- **Supabase** — database, auth, storage, edge functions (Management API)
+- **Stripe** — payments, subscriptions, checkout
+- **Resend** — transactional emails
+- **Clerk** — authentication & user management
+- **PostHog** — product analytics
+- **Sentry** — error tracking & monitoring
+- **Pinecone** — vector DB for AI/RAG
+- **LinkedIn** — auto-publish posts
+- **Twitter/X** — auto-publish tweets (OAuth 1.0a)
+- **Reddit** — auto-publish posts (OAuth2)
+
+**10 new task types** for the orchestrator:
+- `SUPABASE_SETUP`, `CLERK_SETUP`, `STRIPE_SETUP`, `RESEND_SETUP`, `POSTHOG_SETUP`, `SENTRY_SETUP` — infrastructure setup
+- `FRONTEND_BUILD`, `BACKEND_BUILD` — build features in the startup repo
+- `VERCEL_DEPLOY` — deploy to production
+- `README_UPDATE` — keep docs current
+
+**Social media auto-publishing:**
+- LinkedIn posts are published automatically when token is configured
+- Tweets are published via Twitter API v2 with OAuth 1.0a signing
+- Reddit posts are published to the suggested subreddit
+
+**Smart orchestrator:**
+- Day 1: infra setup + landing page + README
+- Day 2-3: core features + first social posts
+- Day 4+: growth, iteration, marketing
+- Only suggests tasks for configured integrations
+
+**Architecture:**
+- Expanded `UserSettings` schema with 20+ token fields (all encrypted at rest)
+- Integrations page with 12 service sections, status indicators, masked tokens
+- `getConfiguredServices()` helper informs the orchestrator what's available
+- Task runner auto-commits + pushes to startup repo after each task
+
+---
+
 ## [0.9.0] — 2026-04-05
 
 ### Autopilot — Autonomous Company Creator
