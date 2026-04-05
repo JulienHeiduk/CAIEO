@@ -53,12 +53,12 @@ function findMainSourceFiles(repoPath: string): string[] {
   return found
 }
 
-/** Generate text from Claude, optionally with a specific model */
-async function generateText(prompt: string, model?: string): Promise<string> {
+/** Generate text from Claude */
+async function generateText(prompt: string): Promise<string> {
   let output = ''
   for await (const message of query({
     prompt,
-    options: { permissionMode: 'bypassPermissions', ...(model ? { model } : {}) },
+    options: { permissionMode: 'bypassPermissions', model: 'claude-opus-4-6' },
   })) {
     if (message.type === 'assistant') {
       for (const block of (message as { type: string; message?: { content?: Array<{ type: string; text?: string }> } }).message?.content ?? []) {
@@ -285,7 +285,7 @@ Respond with ONLY valid JSON in this exact format (no markdown, no extra text):
   ]
 }`
 
-    const raw = await generateText(prompt, 'claude-opus-4-6')
+    const raw = await generateText(prompt)
 
     // Parse tasks from AI output
     const parsed = parseTasksFromText(raw)

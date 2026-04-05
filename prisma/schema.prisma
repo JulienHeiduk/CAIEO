@@ -18,6 +18,7 @@ model User {
   settings          UserSettings?
   gitHubBootstraps  GitHubBootstrap[]
   repoSessions      RepoSession[]
+  autopilotRuns     AutopilotRun[]
 }
 
 model RepoSession {
@@ -119,6 +120,7 @@ model Company {
   tasks          Task[]
   activityLogs   ActivityLog[]
   agentRuns      AgentRun[]
+  autopilotRuns  AutopilotRun[]
 
   @@index([userId])
 }
@@ -236,4 +238,43 @@ enum SocialPlatform {
   REDDIT
   HACKERNEWS
   KAGGLE
+}
+
+model AutopilotRun {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id])
+  companyId       String?
+  company         Company? @relation(fields: [companyId], references: [id])
+
+  currentStep     Int      @default(1)
+  stepStatus      String   @default("RUNNING")
+  stepError       String?
+
+  emailSubject    String?
+  emailBody       String?
+  ideaRaw         String?
+
+  isValidSoftware Boolean?
+  validationNote  String?
+
+  companyName     String?
+
+  repoUrl         String?
+  repoLocalPath   String?
+
+  tasksGenerated  Int?
+  tasksCompleted  Int      @default(0)
+  tasksTotal      Int      @default(0)
+  currentTaskId   String?
+
+  stopRequested   Boolean  @default(false)
+  logs            String   @default("[]")
+
+  triggerType     String   @default("MANUAL")
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([userId])
 }

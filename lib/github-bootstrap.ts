@@ -12,7 +12,7 @@ async function generateText(prompt: string): Promise<string> {
   let output = ''
   for await (const message of query({
     prompt,
-    options: { permissionMode: 'bypassPermissions' },
+    options: { permissionMode: 'bypassPermissions', model: 'claude-opus-4-6' },
   })) {
     if (message.type === 'assistant') {
       for (const block of message.message?.content ?? []) {

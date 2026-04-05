@@ -1,3 +1,3 @@
 // Claude Code SDK is used directly via @anthropic-ai/claude-agent-sdk
 // This file is kept for compatibility
-export const MODEL = 'claude-sonnet-4-6'
+export const MODEL = 'claude-opus-4-6'

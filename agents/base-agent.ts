@@ -79,6 +79,7 @@ ${this.buildInitialPrompt()}`
         prompt: fullPrompt,
         options: {
           permissionMode: 'bypassPermissions',
+          model: 'claude-opus-4-6',
         },
       })) {
         if (message.type === 'assistant') {

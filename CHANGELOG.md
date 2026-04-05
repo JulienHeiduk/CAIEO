@@ -4,6 +4,43 @@ All notable changes to this project are documented here.
 
 ---
 
+## [0.9.0] — 2026-04-05
+
+### Autopilot — Autonomous Company Creator
+
+Full autonomous pipeline that creates a startup from an idea (manual input or Gmail "Idea of the Day").
+
+**Pipeline steps (6 steps):**
+1. **Gmail Fetch** — searches for the latest "Idea of the Day" email and extracts the idea (or skip with manual input)
+2. **Validate** — AI classifies the idea as software or hardware; rejects hardware ideas
+3. **Create Company** — runs CompanyInitAgent with TechnicalStack.md and structured startup launch plan template
+4. **Bootstrap Repo** — creates GitHub repo, clones locally, generates README/CHANGELOG/TASKS.md, commits and pushes (non-blocking if no GitHub token)
+5. **Generate Tasks** — OrchestratorAgent generates 5 tasks, auto-approved
+6. **Execute Tasks** — tasks run one by one with 3-second delay; stoppable between tasks
+
+**Features:**
+- New `/autopilot` page with step bar (6 steps), live log, and stop button
+- Manual idea textarea: type any startup idea and launch directly (skips Gmail step)
+- "Fetch from Gmail" button starts the full pipeline from Gmail
+- "Run Daily Cycle" button generates + executes 5 new tasks for any existing company
+- Stop button halts execution between tasks (cooperative stop)
+- Pipeline history with status badges
+- Structured startup launch plan injected into company strategy (Product Vision, Technical Architecture, Go-to-Market, Growth Engine, Daily Operations)
+- Automatic GitHub repo bootstrap with AI-generated README.md, CHANGELOG.md, TASKS.md
+
+**Architecture:**
+- `AutopilotRun` Prisma model tracks pipeline state across 6 steps (+ `repoUrl`, `repoLocalPath` fields)
+- `lib/autopilot.ts` — core pipeline logic (fetch, validate, create, bootstrap repo, generate, execute)
+- `lib/task-runner.ts` — extracted shared task runner (was inline in execute route)
+- API: `POST/GET /api/autopilot`, `GET/PATCH /api/autopilot/[id]`, `POST /api/autopilot/daily`
+- Sidebar: added Autopilot link
+
+### Changed
+
+- **All AI models upgraded to Opus 4.6** — every `query()` call now uses `claude-opus-4-6` explicitly (lib/repo-engine, lib/github-bootstrap, agents/base-agent, agents/orchestrator, task execution route)
+
+---
+
 ## [0.8.4] — 2026-04-04
 
 ### Added
